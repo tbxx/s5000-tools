@@ -1,0 +1,30 @@
+# Rust
+/target/
+**/target/
+
+# Tauri / Node
+node_modules/
+/app/dist/
+
+# Python
+__pycache__/
+*.pyc
+
+# Never commit captured traffic or sampler content.
+*.pcap
+*.pcapng
+captures/
+*.akp
+*.AKP
+*.akm
+*.AKM
+*.wav
+*.WAV
+*.aif
+*.aiff
+
+# Screenshots and local scratch output
+Screenshot*.png
+frames/
+
+.DS_Store
