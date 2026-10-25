@@ -1,0 +1,9 @@
+[package]
+name = "s5k-formats"
+version = "0.1.0"
+description = "Read and write Akai S5000/S6000 program (.akp), multi (.akm) and sample (.wav) files"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]

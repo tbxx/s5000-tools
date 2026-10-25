@@ -183,7 +183,7 @@ Standard PCM WAV (16-bit) with `fmt `, `fact`, `smpl` and `data` chunks. The
 | +28 | number of standard loops: 0 |
 | +32 | sampler data length (18) |
 | +36 | `loop` |
-| +44, +48 | loop start, loop end (u32 frames) |
+| +44, +48 | loop start, loop end (u32 frames); values from `FFFFFF00` up (the sampler writes `FFFFFFFE`, `FFFFFFF0`) mean no loop |
 | +60 | `02 00`, then root note, semitone (signed), fine (signed) |
 | +65… | `00 00 00 00 01`, then play start (u32), play end (u32) |
 

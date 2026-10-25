@@ -4,8 +4,9 @@ Open tools for the **Akai S5000/S6000** sampler over USB: transfer samples,
 programs and multis, edit them, view the front panel and meters. They
 replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
 
-**Status:** the USB protocol and file formats are documented. The tools are
-being built.
+**Status:** the USB protocol and file formats are documented.
+`crates/s5k-formats` reads and writes `.akp`, `.akm` and `.wav` files. The USB
+tools are being built.
 
 - [docs/protocol.md](docs/protocol.md): the USB protocol
 - [docs/file-formats.md](docs/file-formats.md): `.akp`, `.akm` and `.wav` layouts
@@ -22,6 +23,14 @@ being built.
 
 Both are written in Rust, sharing one core library, and the app uses Tauri
 with Svelte.
+
+## Building
+
+```
+cargo test
+# optional: check a folder of your own files (nothing leaves your machine)
+S5K_LIBRARY=/path/to/files cargo test --release -p s5k-formats --test library -- --ignored
+```
 
 ## Requirements
 

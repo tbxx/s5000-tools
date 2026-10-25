@@ -1,0 +1,8 @@
+[workspace]
+resolver = "3"
+members = ["crates/s5k-formats"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/tbxx/s5000-tools"
