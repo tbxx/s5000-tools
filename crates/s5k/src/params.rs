@@ -145,10 +145,10 @@ impl Param {
         let Value::Number(n) = *value else {
             return Err(Error::Invalid(format!("{} takes a number", self.id)));
         };
-        if let (Some(lo), Some(hi)) = (self.min, self.max) {
-            if n < lo || n > hi {
-                return Err(Error::Invalid(format!("{} must be {lo}..{hi}", self.id)));
-            }
+        if let (Some(lo), Some(hi)) = (self.min, self.max)
+            && (n < lo || n > hi)
+        {
+            return Err(Error::Invalid(format!("{} must be {lo}..{hi}", self.id)));
         }
         Ok(match enc {
             "u7" | "enum" | "bool" => vec![(n & 0x7F) as u8],
