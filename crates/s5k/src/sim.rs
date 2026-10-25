@@ -317,12 +317,12 @@ impl Simulator {
     }
 
     fn handle_raw(&mut self, p: &[u8]) {
-        if let Mode::Download { data, sent } = &mut self.mode {
-            if p == [0] {
-                let (data, sent) = (std::mem::take(data), *sent);
-                self.next_block(data, sent);
-                return;
-            }
+        if let Mode::Download { data, sent } = &mut self.mode
+            && p == [0]
+        {
+            let (data, sent) = (std::mem::take(data), *sent);
+            self.next_block(data, sent);
+            return;
         }
         if let Mode::Upload { file, want, got, .. } = &mut self.mode {
             if *got < *want {

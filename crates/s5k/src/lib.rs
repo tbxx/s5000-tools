@@ -19,6 +19,12 @@ pub mod sim;
 
 pub use bundle::Bundle;
 pub use error::{Error, Result};
-pub use s5k_protocol::{ItemKind, Transport, panel::Key};
+pub use s5k_protocol::meters::Meters;
+pub use s5k_protocol::panel::{Key, Screen};
+/// Screen dimensions in pixels.
+pub mod panel_size {
+    pub use s5k_protocol::panel::{HEIGHT, WIDTH};
+}
+pub use s5k_protocol::{ItemKind, Transport};
 pub use sampler::{MemoryList, MultiInfo, ProgramInfo, SampleInfo, Sampler, SamplerInfo};
 pub use sim::Simulator;

@@ -13,6 +13,10 @@ space after names, the last byte of some chunks, unused zones. Readers must
 take names by their length byte, never by scanning for text, and ignore the
 padding bytes noted below. Writers may zero them.
 
+The sampler also refills these bytes whenever it stores an item, so a program
+or multi sent to memory and fetched back differs from the original only in
+them (verified on an S5000 with OS 2.14). Compare fields, not raw bytes.
+
 ## Programs (`.akp`)
 
 Header: `RIFF`, a length field that is always 0, `APRG`.

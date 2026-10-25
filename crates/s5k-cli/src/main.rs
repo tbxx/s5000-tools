@@ -7,6 +7,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use s5k::{ItemKind, Sampler};
 use s5k_usb::UsbTransport;
 
+mod png;
+
 #[derive(Parser)]
 #[command(name = "s5k", version, about = "Control an Akai S5000/S6000 over USB")]
 struct Cli {
@@ -70,6 +72,14 @@ enum Command {
         #[arg(short = 'y', long)]
         yes: bool,
     },
+    /// Create an empty program or multi in memory.
+    Create {
+        kind: Kind,
+        name: String,
+        /// Keygroups (programs, 1–99) or parts (multis: 32, 64 or 128).
+        #[arg(short, long)]
+        size: Option<u16>,
+    },
     /// Rename an item in memory.
     Rename {
         kind: Kind,
@@ -82,6 +92,16 @@ enum Command {
     Stop { name: String },
     /// Show level meters once.
     Meters,
+    /// Save the sampler's screen as a PNG.
+    Screen {
+        #[arg(default_value = "screen.png")]
+        file: PathBuf,
+        /// Pixel scale.
+        #[arg(short, long, default_value_t = 2)]
+        scale: usize,
+    },
+    /// Press front-panel keys, e.g. `s5k press multi f1 f2`.
+    Press { keys: Vec<String> },
     /// Delete everything in memory.
     Clear {
         #[arg(short = 'y', long)]
@@ -287,6 +307,15 @@ fn run(command: Command) -> Res<()> {
                 println!("deleted {name}");
             }
         }
+        Command::Create { kind, name, size } => {
+            let mut s = connect()?;
+            match kind {
+                Kind::Program => s.create_program(&name, size.unwrap_or(1).clamp(1, 99) as u8)?,
+                Kind::Multi => s.create_multi(&name, size.unwrap_or(32))?,
+                Kind::Sample => return Err("samples are created by recording or sending a .wav".into()),
+            }
+            println!("created {name}");
+        }
         Command::Rename { kind, name, new_name } => {
             let kind = ItemKind::from(kind);
             let mut s = connect()?;
@@ -305,6 +334,18 @@ fn run(command: Command) -> Res<()> {
                 println!("output {:2}  {}", i + 1, show(*o));
             }
         }
+        Command::Screen { file, scale } => {
+            let screen = connect()?.screen()?;
+            std::fs::write(&file, png::encode(&screen, scale.clamp(1, 8)))?;
+            println!("{}", file.display());
+        }
+        Command::Press { keys } => {
+            let keys = keys.iter().map(|k| parse_key(k)).collect::<Res<Vec<_>>>()?;
+            let mut s = connect()?;
+            for key in keys {
+                s.tap(key)?;
+            }
+        }
         Command::Clear { yes } => {
             if !yes && !confirm("Delete EVERYTHING in the sampler's memory?") {
                 return Ok(());
@@ -314,6 +355,42 @@ fn run(command: Command) -> Res<()> {
         }
     }
     Ok(())
+}
+
+fn parse_key(name: &str) -> Res<s5k::Key> {
+    use s5k::Key;
+    let n = name.to_ascii_lowercase().replace(['-', '_', ' ', '/'], "");
+    if let Some(f) = n.strip_prefix('f').and_then(|d| d.parse::<u8>().ok()) {
+        return Key::function(f).ok_or_else(|| format!("no key F{f}").into());
+    }
+    if let Ok(d) = n.parse::<u8>() {
+        return Key::from_code(0x58 + d)
+            .filter(|_| d <= 9)
+            .ok_or_else(|| format!("no key {d}").into());
+    }
+    Ok(match n.as_str() {
+        "fx" => Key::Fx,
+        "record" => Key::Record,
+        "editsample" | "sample" => Key::EditSample,
+        "editprogram" | "program" => Key::EditProgram,
+        "multi" => Key::Multi,
+        "utilities" | "utility" => Key::Utilities,
+        "save" => Key::Save,
+        "load" => Key::Load,
+        "plus" | "+" => Key::Plus,
+        "minus" | "-" => Key::Minus,
+        "left" => Key::CursorLeft,
+        "right" => Key::CursorRight,
+        "window" => Key::Window,
+        "mark" => Key::Mark,
+        "jump" => Key::Jump,
+        "exit" => Key::Exit,
+        "ent" | "play" | "entplay" | "enter" => Key::EntPlay,
+        "user1" => Key::User1,
+        "user2" => Key::User2,
+        "user3" => Key::User3,
+        _ => return Err(format!("unknown key '{name}'").into()),
+    })
 }
 
 fn s5k_protocol_db(raw: u8) -> String {
