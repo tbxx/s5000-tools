@@ -425,6 +425,11 @@ Samples are addressed by index with `2E <sample hi> <sample lo> <item>`.
 | `2E <s> 0A` | **start auditioning** the sample (plays on the sampler's outputs) |
 | `2E <s> 0B` | stop auditioning |
 
+Sample settings can also be read and written by index with the spec's
+Sample section items (table 18), e.g. root note, semitone, fine tune and loop
+start/end. ak.Sys never uses these, but they work on an S5000 with OS 2.14;
+`spec/params.toml` lists them.
+
 ak.Sys has no sample editor: it gets the `.wav`, opens it in an external
 editor, and sends it back. Loop points and tuning travel inside the file (see
 [file-formats.md](file-formats.md#wav-samples)).
@@ -569,5 +574,3 @@ items by name where possible. Plain "load" does not load dependencies; use
 - The 128-byte block after a `01 00 00 00` keep-alive reply.
 - `02 01`, `02 04`, `02 20`, `02 21` status values (see the spec's System
   Setup tables 6–7).
-- Sample parameter set commands (`2E` items, spec table 18): ak.Sys does not
-  use them, so they are untested.

@@ -131,6 +131,7 @@ enum ParamAction {
         select: Vec<u8>,
     },
     /// Change a parameter, e.g. `s5k param set keygroup.cutoff Pad 60 -k 2`.
+    #[command(allow_negative_numbers = true)]
     Set {
         id: String,
         /// `[NAME] VALUE`: the program/multi/sample name (if needed), then the value.
