@@ -15,8 +15,10 @@ pub mod bundle;
 pub mod disk;
 pub mod error;
 pub mod sampler;
+pub mod sim;
 
 pub use bundle::Bundle;
 pub use error::{Error, Result};
 pub use s5k_protocol::{ItemKind, Transport, panel::Key};
 pub use sampler::{MemoryList, MultiInfo, ProgramInfo, SampleInfo, Sampler, SamplerInfo};
+pub use sim::Simulator;
