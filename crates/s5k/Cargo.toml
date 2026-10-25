@@ -9,3 +9,5 @@ repository.workspace = true
 [dependencies]
 s5k-formats = { path = "../s5k-formats" }
 s5k-protocol = { path = "../s5k-protocol" }
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "1.1.8"

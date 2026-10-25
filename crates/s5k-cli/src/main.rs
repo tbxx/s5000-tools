@@ -92,6 +92,11 @@ enum Command {
     Stop { name: String },
     /// Show level meters once.
     Meters,
+    /// List, read or change parameters (see spec/params.toml).
+    Param {
+        #[command(subcommand)]
+        action: ParamAction,
+    },
     /// Save the sampler's screen as a PNG.
     Screen {
         #[arg(default_value = "screen.png")]
@@ -106,6 +111,35 @@ enum Command {
     Clear {
         #[arg(short = 'y', long)]
         yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum ParamAction {
+    /// List parameter ids, optionally for one scope (program, keygroup, zone, multi_part, sample, fx, system, midi).
+    List { scope: Option<String> },
+    /// Read a parameter, e.g. `s5k param get program.loudness Pad`.
+    Get {
+        id: String,
+        /// Program, multi or sample name (not needed for system/midi/fx).
+        item: Option<String>,
+        /// Keygroup number (from 1) for keygroup and zone parameters.
+        #[arg(short, long, default_value_t = 1)]
+        keygroup: u8,
+        /// Selector values (LFO, zone, part, …), comma-separated.
+        #[arg(short, long, value_delimiter = ',')]
+        select: Vec<u8>,
+    },
+    /// Change a parameter, e.g. `s5k param set keygroup.cutoff Pad 60 -k 2`.
+    Set {
+        id: String,
+        /// `[NAME] VALUE`: the program/multi/sample name (if needed), then the value.
+        #[arg(num_args = 1..=2, required = true)]
+        args: Vec<String>,
+        #[arg(short, long, default_value_t = 1)]
+        keygroup: u8,
+        #[arg(short, long, value_delimiter = ',')]
+        select: Vec<u8>,
     },
 }
 
@@ -334,6 +368,7 @@ fn run(command: Command) -> Res<()> {
                 println!("output {:2}  {}", i + 1, show(*o));
             }
         }
+        Command::Param { action } => param(action)?,
         Command::Screen { file, scale } => {
             let screen = connect()?.screen()?;
             std::fs::write(&file, png::encode(&screen, scale.clamp(1, 8)))?;
@@ -417,4 +452,89 @@ fn find_wav(folder: &Path, sample: &str) -> Option<Vec<u8>> {
         .flatten()
         .find(|e| e.file_name().to_string_lossy().to_ascii_lowercase() == wanted)
         .and_then(|e| std::fs::read(e.path()).ok())
+}
+
+fn param(action: ParamAction) -> Res<()> {
+    use s5k::params::{Target, Value};
+    let cat = s5k::catalog();
+    let (id, item, keygroup, select, value) = match action {
+        ParamAction::List { scope } => {
+            for p in &cat.params {
+                if scope.as_deref().is_none_or(|s| s == p.scope) {
+                    let range = match (p.min, p.max) {
+                        (Some(a), Some(b)) => format!("{a}..{b}"),
+                        _ => String::new(),
+                    };
+                    println!("{:<40} {:<28} {}", p.id, p.label, range);
+                }
+            }
+            return Ok(());
+        }
+        ParamAction::Get {
+            id,
+            item,
+            keygroup,
+            select,
+        } => (id, item, keygroup, select, None),
+        ParamAction::Set {
+            id,
+            mut args,
+            keygroup,
+            select,
+        } => {
+            let value = args.pop();
+            (id, args.pop(), keygroup, select, value)
+        }
+    };
+    let p = cat
+        .get(&id)
+        .ok_or_else(|| format!("no parameter '{id}' (try `s5k param list`)"))?;
+    let mut s = connect()?;
+    let mut index_of = |kind: ItemKind| -> Res<u16> {
+        let name = item.clone().ok_or("name the program, multi or sample")?;
+        let all = names_of(&mut s, kind)?;
+        Ok(resolve(&all, &[name])?[0].0)
+    };
+    let target = match p.scope.as_str() {
+        "system" | "midi" => Target::Global,
+        "fx" => Target::Effects,
+        "program" => Target::Program(index_of(ItemKind::Program)?),
+        "keygroup" | "zone" => Target::Keygroup {
+            program: index_of(ItemKind::Program)?,
+            keygroup,
+        },
+        "multi" | "multi_part" => Target::Multi(index_of(ItemKind::Multi)?),
+        "sample" => Target::Sample(index_of(ItemKind::Sample)?),
+        other => return Err(format!("unknown scope {other}").into()),
+    };
+    let names = cat.values(p);
+    match value {
+        None => {
+            let v = s.read_param(p, target, &select)?;
+            let shown = match (&v, names) {
+                (Value::Number(n), Some(list)) => list.get(*n as usize).cloned().unwrap_or(v.to_string()),
+                _ => v.to_string(),
+            };
+            println!(
+                "{} = {shown}{}",
+                p.id,
+                p.units.as_ref().map(|u| format!(" {u}")).unwrap_or_default()
+            );
+        }
+        Some(text) => {
+            let v = if p.encoding.as_deref() == Some("string") {
+                Value::Text(text)
+            } else if let Some(i) = names.and_then(|l| l.iter().position(|n| n.eq_ignore_ascii_case(&text))) {
+                Value::Number(i as i32)
+            } else {
+                Value::Number(
+                    text.parse()
+                        .map_err(|_| format!("'{text}' is not a number or a known value"))?,
+                )
+            };
+            s.write_param(p, target, &select, &v)?;
+            println!("{} := {v}", p.id);
+        }
+    }
+    Ok(())
 }

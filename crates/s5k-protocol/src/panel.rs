@@ -173,8 +173,11 @@ mod tests {
 
     #[test]
     fn key_messages_match_captures() {
-        // Captured: 20 01 40 61 (press FX).
-        assert_eq!(press(Key::Fx).sysex()[6..10], [0x20, 0x01, 0x40, 0x61]);
+        // Captured: 20 01 40 61 (press FX; 61 is the checksum, sent only when enabled).
+        assert_eq!(
+            press(Key::Fx).sysex_with_checksum()[6..10],
+            [0x20, 0x01, 0x40, 0x61]
+        );
         assert_eq!(wheel(-3).data, vec![1, 3]);
         assert_eq!(Key::function(9), Some(Key::F9));
         assert_eq!(Key::F9 as u8, 0x50);

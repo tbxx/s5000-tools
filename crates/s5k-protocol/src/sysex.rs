@@ -112,15 +112,27 @@ impl Message {
         (sum & 0x7F) as u8
     }
 
-    /// The complete SysEx message, `F0 … F7`, with checksum.
+    /// The complete SysEx message, `F0 … F7`, without a checksum.
+    ///
+    /// Checksums are off by default on the sampler, and it then treats a
+    /// checksum byte as data. That is harmless for fixed-length commands but
+    /// corrupts variable-length ones (blocked keygroup/zone sets), so none is
+    /// sent, as ak.Sys does for those.
     pub fn sysex(&self) -> Vec<u8> {
         let mut out = vec![0xF0, AKAI, MODEL, DEVICE];
         out.extend_from_slice(&USER_REF);
         out.push(self.section);
         out.push(self.item);
         out.extend_from_slice(&self.data);
-        out.push(self.checksum());
         out.push(0xF7);
+        out
+    }
+
+    /// The message with a checksum before `F7`, for use after checksums have
+    /// been enabled with `00 04 01`.
+    pub fn sysex_with_checksum(&self) -> Vec<u8> {
+        let mut out = self.sysex();
+        out.insert(out.len() - 1, self.checksum());
         out
     }
 
@@ -288,12 +300,12 @@ mod tests {
 
     #[test]
     fn frames_a_short_command() {
-        // Wave memory free (02 30): seen on the wire as 10 0A 00 F0 47 5E 20 00 00 02 30 32 F7.
+        // Wave memory free (02 30). ak.Sys sends a checksum (32) before F7; we don't.
         let packets = Message::new(section::SYSTEM, 0x30, []).usb_packets();
         assert_eq!(
             packets,
             vec![vec![
-                0x10, 0x0A, 0x00, 0xF0, 0x47, 0x5E, 0x20, 0, 0, 0x02, 0x30, 0x32, 0xF7
+                0x10, 0x09, 0x00, 0xF0, 0x47, 0x5E, 0x20, 0, 0, 0x02, 0x30, 0xF7
             ]]
         );
     }
@@ -320,7 +332,8 @@ mod tests {
     fn indexed_messages_match_captures() {
         // Sample info by index: 2E 00 00 34, checksum 62; reply echoes 34.
         let m = Message::by_index(section::SAMPLE_BY_INDEX, 0, 0x34, &[]);
-        assert_eq!(m.sysex()[6..], [0x2E, 0x00, 0x00, 0x34, 0x62, 0xF7]);
+        assert_eq!(m.sysex()[6..], [0x2E, 0x00, 0x00, 0x34, 0xF7]);
+        assert_eq!(m.sysex_with_checksum()[6..], [0x2E, 0x00, 0x00, 0x34, 0x62, 0xF7]);
         assert_eq!(m.reply_item(), 0x34);
         // Keygroup set on program 1, keygroup 1: 3A 00 01 01 05 3D 00 00; reply echoes the keygroup.
         let m = Message::block(section::KEYGROUP_BLOCK, 1, Some(1), &[(0x05, [0x3D, 0, 0])]);

@@ -14,11 +14,13 @@
 pub mod bundle;
 pub mod disk;
 pub mod error;
+pub mod params;
 pub mod sampler;
 pub mod sim;
 
 pub use bundle::Bundle;
 pub use error::{Error, Result};
+pub use params::{Target, Value, catalog};
 pub use s5k_protocol::meters::Meters;
 pub use s5k_protocol::panel::{Key, Screen};
 /// Screen dimensions in pixels.

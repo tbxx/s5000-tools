@@ -59,14 +59,19 @@ Only one program can hold the device at a time.
 Most commands are System Exclusive messages wrapped in a 3-byte header:
 
 ```
-10 <len lo> <len hi>   F0 47 5E 20 00 00 <section> <item> <data...> <checksum> F7
+10 <len lo> <len hi>   F0 47 5E 20 00 00 <section> <item> <data...> [<checksum>] F7
 ```
 
 - `len` is the byte count of the SysEx part, little-endian.
 - `47` is Akai, `5E` the S5000/S6000 device ID, and `20` means a user
   reference of 2 bytes (`00 00`) follows.
-- `checksum` = (section + item + all data bytes) & 0x7F. ak.Sys sends it, but
-  the sampler does not enforce it: some ak.Sys messages omit it.
+- `checksum` = (section + item + all data bytes) & 0x7F, optional. **Checksums
+  are off by default, and the sampler then treats a checksum byte as data.**
+  Fixed-length commands ignore the extra byte, but variable-length ones (the
+  blocked keygroup/zone sets in §7) misparse it: a set is applied and then
+  reported as an error, or answered with an unrelated reply. ak.Sys sends
+  blocked sets without a checksum. s5000-tools sends none (verified on an
+  S5000, OS 2.14); enable checksums with `00 04 01` before sending them.
 - **Long messages are split.** Each USB write carries at most 61 bytes of
   SysEx after its own `10 <len16>` header. A message is cut into consecutive
   pieces; only the first starts with `F0` and only the last ends with `F7`.

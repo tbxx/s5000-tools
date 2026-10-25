@@ -449,9 +449,10 @@ impl Transport for Simulator {
             self.pending.extend_from_slice(&packet[3..]);
             if self.pending.last() == Some(&0xF7) {
                 let bytes = std::mem::take(&mut self.pending);
-                // F0 47 5E 20 00 00 <section> <item> <data…> <checksum> F7
-                if bytes.len() >= 10 {
-                    let msg = Message::new(bytes[6], bytes[7], bytes[8..bytes.len() - 2].to_vec());
+                // F0 47 5E 20 00 00 <section> <item> <data…> F7 (no checksum, as
+                // with checksums disabled on the real sampler).
+                if bytes.len() >= 9 {
+                    let msg = Message::new(bytes[6], bytes[7], bytes[8..bytes.len() - 1].to_vec());
                     self.handle(msg);
                 }
             }
