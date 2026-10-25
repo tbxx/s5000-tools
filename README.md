@@ -4,8 +4,10 @@ Open tools for the **Akai S5000/S6000** sampler over USB: transfer samples,
 programs and multis, edit them, view the front panel and meters. They
 replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
 
-**Status:** working on real hardware (macOS, S5000 OS 2.14): listing memory and
-sending, getting and deleting items. The editor app is in progress.
+**Status:** the `s5k` command works on real hardware (macOS, S5000 OS 2.14):
+memory listing, transfers with dependencies, rename/delete/create, live
+parameter editing (programs, keygroups, zones, multi parts, samples), screen,
+keys and meters. The editor app is in progress.
 
 | Crate | Purpose |
 |---|---|
@@ -16,6 +18,7 @@ sending, getting and deleting items. The editor app is in progress.
 | `s5k-cli` | the `s5k` command |
 | `spec/` | parameter catalog generated into the tools |
 
+- [docs/cli.md](docs/cli.md): using the `s5k` command
 - [docs/protocol.md](docs/protocol.md): the USB protocol
 - [docs/file-formats.md](docs/file-formats.md): `.akp`, `.akm` and `.wav` layouts
 - [docs/effects.md](docs/effects.md): the EB20 effects board
