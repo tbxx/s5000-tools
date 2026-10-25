@@ -1,0 +1,11 @@
+[package]
+name = "s5k-usb"
+version = "0.1.0"
+description = "USB transport for Akai S5000/S6000 samplers, built on nusb"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+nusb = "0.2.9"
+s5k-protocol = { path = "../s5k-protocol" }

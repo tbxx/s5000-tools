@@ -1,0 +1,17 @@
+[package]
+name = "s5k-cli"
+version = "0.1.0"
+description = "s5k: command-line control of an Akai S5000/S6000 over USB"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "s5k"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.6.7", features = ["derive"] }
+s5k = { path = "../s5k" }
+s5k-formats = { path = "../s5k-formats" }
+s5k-usb = { path = "../s5k-usb" }

@@ -1,0 +1,3615 @@
+# s5000-tools parameter catalog.
+#
+# A factual description of the Akai S5000/S6000 SysEx parameters, compiled from
+# Akai's "S5000/S6000 MIDI System Exclusive Protocol Specification" (v2.10) and
+# from hardware observation (docs/protocol.md, docs/file-formats.md,
+# docs/effects.md). Schema: spec/README.md. Disagreements: spec/discrepancies.md.
+
+# ------------------------------------------------------------ value lists
+
+[[list]]
+id = "mod_source"
+values = [
+  "NONE", "WHEEL", "BEND", "AFT", "EXT", "VEL", "KBD", "LFO1", "LFO2", "A EG", "F EG",
+  "AX EG", "!WHEEL", "!BEND", "!EXT"
+]
+
+[[list]]
+id = "midi_channel"
+values = [
+  "1A", "2A", "3A", "4A", "5A", "6A", "7A", "8A", "9A", "10A", "11A", "12A", "13A",
+  "14A", "15A", "16A", "1B", "2B", "3B", "4B", "5B", "6B", "7B", "8B", "9B", "10B",
+  "11B", "12B", "13B", "14B", "15B", "16B"
+]
+
+[[list]]
+id = "filter_type"
+values = [
+  "2-POLE LP", "4-POLE LP", "2-POLE LP+", "2-POLE BP", "4-POLE BP", "2-POLE BP+",
+  "1-POLE HP", "2-POLE HP", "1-POLE HP+", "LO<>HI", "LO<>BAND", "BAND<>HI", "NOTCH 1",
+  "NOTCH 2", "NOTCH 3", "WIDE NOTCH", "BI-NOTCH", "PEAK 1", "PEAK 2", "PEAK 3",
+  "WIDE PEAK", "BI-PEAK", "PHASER 1", "PHASER 2", "BI-PHASE", "VOWELISER"
+]
+
+[[list]]
+id = "lfo_waveform"
+values = [
+  "SINE", "TRIANGLE", "SQUARE", "SQUARE+", "SQUARE-", "SAW BI", "SAW UP", "SAW DOWN",
+  "RANDOM"
+]
+
+[[list]]
+id = "lfo_clock_division"
+values = [
+  "8 cy/bt", "6 cy/bt", "4 cy/bt", "3 cy/bt", "2 cy/bt", "1 cy/bt", "2 bt/cy", "3 bt/cy",
+  "4 bt/cy", "5 bt/cy", "6 bt/cy", "7 bt/cy", "8 bt/cy", "9 bt/cy", "10 bt/cy",
+  "11 bt/cy", "12 bt/cy", "13 bt/cy", "14 bt/cy", "15 bt/cy", "16 bt/cy", "17 bt/cy",
+  "18 bt/cy", "19 bt/cy", "20 bt/cy", "21 bt/cy", "22 bt/cy", "23 bt/cy", "24 bt/cy",
+  "25 bt/cy", "26 bt/cy", "27 bt/cy", "28 bt/cy", "29 bt/cy", "30 bt/cy", "31 bt/cy",
+  "32 bt/cy", "33 bt/cy", "34 bt/cy", "35 bt/cy", "36 bt/cy", "37 bt/cy", "38 bt/cy",
+  "39 bt/cy", "40 bt/cy", "41 bt/cy", "42 bt/cy", "43 bt/cy", "44 bt/cy", "45 bt/cy",
+  "46 bt/cy", "47 bt/cy", "48 bt/cy", "49 bt/cy", "50 bt/cy", "51 bt/cy", "52 bt/cy",
+  "53 bt/cy", "54 bt/cy", "55 bt/cy", "56 bt/cy", "57 bt/cy", "58 bt/cy", "59 bt/cy",
+  "60 bt/cy", "61 bt/cy", "62 bt/cy", "63 bt/cy", "64 bt/cy"
+]
+
+[[list]]
+id = "fx_bus"
+values = ["OFF", "FX1", "FX2", "RV3", "RV4"]
+
+[[list]]
+id = "zone_output"
+values = [
+  "MULTI", "1/2", "3/4", "5/6", "7/8", "9/10", "11/12", "13/14", "15/16", "1", "2", "3",
+  "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"
+]
+
+[[list]]
+id = "part_output"
+values = [
+  "1/2", "3/4", "5/6", "7/8", "9/10", "11/12", "13/14", "15/16", "1", "2", "3", "4", "5",
+  "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"
+]
+
+[[list]]
+id = "keygroup_level"
+values = [
+  "-30 dB", "-24 dB", "-18 dB", "-12 dB", "-6 dB", "0 dB", "+6 dB", "+12 dB", "+18 dB",
+  "+24 dB", "+30 dB"
+]
+
+[[list]]
+id = "filter_attenuation"
+values = ["0 dB", "6 dB", "12 dB", "18 dB", "24 dB", "30 dB"]
+
+[[list]]
+id = "sample_playback"
+values = [
+  "NO LOOPING", "ONE SHOT", "LOOP IN REL", "LOOP UNTIL REL", "LIR>RETRIG", "PLAY>RETRIG"
+]
+
+[[list]]
+id = "play_mode"
+values = ["MULTI", "PROGRAM", "SAMPLE", "MUTED"]
+
+[[list]]
+id = "tune_template"
+values = [
+  "USER", "EVEN-TEMPERED", "ORCHESTRAL", "WERKMEISTER", "1/5 MEANTONE", "1/4 MEANTONE",
+  "JUST", "ARABIAN"
+]
+
+[[list]]
+id = "key"
+values = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
+
+[[list]]
+id = "fx_module_type"
+values = [
+  "none", "RingMod/Distortion", "Chorus", "Flanger", "Phase", "Rotary Speaker",
+  "FM/Autopan", "PitchShift", "PitchShift+Feedback", "EQ", "Mono Delay L",
+  "Mono Delay L+R", "Mono Delay Crossover", "Stereo Delay", "Reverb", "Output Mix",
+  "Reverb Input"
+]
+
+[[list]]
+id = "reverb_type"
+values = [
+  "Large hall", "Small hall", "Large room", "Small room", "Gated 1", "Gated 2",
+  "Reverse"
+]
+
+[[list]]
+id = "reverb_input"
+values = ["Own send", "FX send", "FX after dist/EQ", "FX after mod/delay", "FX reverb"]
+
+[[list]]
+id = "pre_post"
+values = ["PRE", "POST"]
+
+# ------------------------------------------------------------ system
+
+[[param]]
+id = "system.os_version"
+scope = "system"
+label = "OS version"
+section = 0x02
+get_item = 0x00
+source = "both"
+notes = "Composite reply: major byte then minor byte (e.g. 02 0E)."
+
+[[param]]
+id = "system.os_subversion"
+scope = "system"
+label = "OS sub-version"
+section = 0x02
+get_item = 0x01
+encoding = "u7"
+min = 0
+max = 127
+source = "both"
+notes = "Spec says always 0. ak.Sys polls it at start-up."
+
+[[param]]
+id = "system.name"
+scope = "system"
+label = "Sampler name"
+section = 0x02
+set_item = 0x02
+get_item = 0x03
+encoding = "string"
+source = "both"
+notes = "Defaults to the model name, e.g. \"AKAI S5000\"."
+
+[[param]]
+id = "system.model"
+scope = "system"
+label = "Model"
+section = 0x02
+get_item = 0x04
+encoding = "enum"
+values = ["S5000", "S6000"]
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "system.clock"
+scope = "system"
+label = "Clock"
+section = 0x02
+set_item = 0x06
+get_item = 0x05
+source = "spec"
+notes = "Composite, 8 bytes: year as u14 (1980-2079), month 1-12, day 1-31, weekday 1-7 (1 = Sunday), hour 0-23, minute 0-59, second 0-59."
+
+[[param]]
+id = "system.play_mode"
+scope = "system"
+label = "Play mode"
+section = 0x02
+set_item = 0x10
+get_item = 0x20
+encoding = "enum"
+list = "play_mode"
+min = 0
+max = 3
+source = "both"
+notes = "ak.Sys polls 02 20 every few seconds."
+
+[[param]]
+id = "system.panel_lock"
+scope = "system"
+label = "Front panel lock"
+section = 0x02
+set_item = 0x11
+get_item = 0x21
+encoding = "bool"
+min = 0
+max = 1
+source = "both"
+notes = "1 = front panel locked out."
+
+[[param]]
+id = "system.wave_memory_free_pct"
+scope = "system"
+label = "Wave memory free"
+section = 0x02
+get_item = 0x30
+encoding = "u7"
+min = 0
+max = 100
+units = "%"
+source = "both"
+
+[[param]]
+id = "system.mpks_memory_free_pct"
+scope = "system"
+label = "MPKS memory free"
+section = 0x02
+get_item = 0x31
+encoding = "u7"
+min = 0
+max = 100
+units = "%"
+source = "both"
+notes = "Memory for multis, programs, keygroups and samples (the docs call it CPU memory)."
+
+[[param]]
+id = "system.wave_memory_total"
+scope = "system"
+label = "Wave memory installed"
+section = 0x02
+get_item = 0x33
+encoding = "u28"
+min = 0
+units = "bytes"
+source = "spec"
+
+[[param]]
+id = "system.wave_memory_free"
+scope = "system"
+label = "Wave memory free (bytes)"
+section = 0x02
+get_item = 0x34
+encoding = "u28"
+min = 0
+units = "bytes"
+source = "spec"
+
+# ------------------------------------------------------------ midi
+
+[[param]]
+id = "midi.program_change"
+scope = "midi"
+label = "Program change"
+section = 0x04
+set_item = 0x01
+encoding = "bool"
+min = 0
+max = 1
+source = "spec"
+
+[[param]]
+id = "midi.multi_select"
+scope = "midi"
+label = "Multi select"
+section = 0x04
+set_item = 0x02
+encoding = "enum"
+values = ["OFF", "PROG CHANGE", "BANK"]
+min = 0
+max = 2
+source = "spec"
+
+[[param]]
+id = "midi.multi_select_channel"
+scope = "midi"
+label = "Multi select channel"
+section = 0x04
+set_item = 0x03
+encoding = "enum"
+list = "midi_channel"
+min = 0
+max = 31
+source = "spec"
+
+[[param]]
+id = "midi.apm_controller"
+scope = "midi"
+label = "External APM controller"
+section = 0x04
+set_item = 0x04
+encoding = "u7"
+min = 0
+max = 127
+source = "spec"
+notes = "Presumably a MIDI controller number; the spec gives only the range."
+
+[[param]]
+id = "midi.aftertouch_mode"
+scope = "midi"
+label = "Aftertouch type"
+section = 0x04
+set_item = 0x05
+encoding = "enum"
+values = ["CHANNEL", "POLY"]
+min = 0
+max = 1
+source = "spec"
+
+[[param]]
+id = "midi.filter_allow"
+scope = "midi"
+label = "MIDI filter: allow"
+section = 0x04
+set_item = 0x06
+index = { name = "message", min = 0, max = 3 }
+encoding = "enum"
+list = "midi_channel"
+min = 0
+max = 31
+source = "spec"
+notes = "Index selects the message type (0 note on, 1 aftertouch, 2 wheels, 3 volume); the value is the channel on which to let it through. Applies to ports A and B."
+
+[[param]]
+id = "midi.filter_block"
+scope = "midi"
+label = "MIDI filter: block"
+section = 0x04
+set_item = 0x07
+index = { name = "message", min = 0, max = 3 }
+encoding = "enum"
+list = "midi_channel"
+min = 0
+max = 31
+source = "spec"
+notes = "As midi.filter_allow, but makes the sampler ignore that message type on the channel."
+
+# ------------------------------------------------------------ zone
+
+[[param]]
+id = "zone.sample"
+scope = "zone"
+label = "Sample"
+section = 0x06
+set_item = 0x01
+get_item = 0x21
+index = { name = "zone", min = 1, max = 4 }
+encoding = "string"
+source = "both"
+notes = "Empty reply (single 00) when no sample is assigned. In .akp the name is length-prefixed at zone +1; s5k-formats reads it with zone_sample()."
+
+[[param]]
+id = "zone.level"
+scope = "zone"
+label = "Level"
+section = 0x06
+set_item = 0x02
+get_item = 0x22
+index = { name = "zone", min = 1, max = 4 }
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "Zone", field = "level" }
+source = "both"
+
+[[param]]
+id = "zone.pan"
+scope = "zone"
+label = "Pan"
+section = 0x06
+set_item = 0x03
+get_item = 0x23
+index = { name = "zone", min = 1, max = 4 }
+encoding = "offset"
+offset = 64
+min = -50
+max = 50
+file = { format = "akp", section = "Zone", field = "pan" }
+source = "both"
+notes = "-50 = L50, +50 = R50. The file stores the signed value directly."
+
+[[param]]
+id = "zone.output"
+scope = "zone"
+label = "Output"
+section = 0x06
+set_item = 0x04
+get_item = 0x24
+index = { name = "zone", min = 1, max = 4 }
+encoding = "enum"
+list = "zone_output"
+min = 0
+max = 24
+file = { format = "akp", section = "Zone", field = "output" }
+source = "both"
+
+[[param]]
+id = "zone.filter"
+scope = "zone"
+label = "Filter offset"
+section = 0x06
+set_item = 0x05
+get_item = 0x25
+index = { name = "zone", min = 1, max = 4 }
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "Zone", field = "filter" }
+source = "both"
+
+[[param]]
+id = "zone.fine"
+scope = "zone"
+label = "Fine tune"
+section = 0x06
+set_item = 0x06
+get_item = 0x26
+index = { name = "zone", min = 1, max = 4 }
+encoding = "signed7"
+min = -50
+max = 50
+file = { format = "akp", section = "Zone", field = "fine" }
+source = "both"
+
+[[param]]
+id = "zone.semitone"
+scope = "zone"
+label = "Semitone tune"
+section = 0x06
+set_item = 0x07
+get_item = 0x27
+index = { name = "zone", min = 1, max = 4 }
+encoding = "signed7"
+min = -36
+max = 36
+file = { format = "akp", section = "Zone", field = "semitone" }
+source = "both"
+
+[[param]]
+id = "zone.keyboard_tracking"
+scope = "zone"
+label = "Keyboard tracking"
+section = 0x06
+set_item = 0x08
+get_item = 0x28
+index = { name = "zone", min = 1, max = 4 }
+encoding = "bool"
+min = 0
+max = 1
+file = { format = "akp", section = "Zone", field = "keyboard_tracking" }
+source = "both"
+
+[[param]]
+id = "zone.playback"
+scope = "zone"
+label = "Playback mode"
+section = 0x06
+set_item = 0x09
+get_item = 0x29
+index = { name = "zone", min = 1, max = 4 }
+encoding = "u7"
+min = 0
+max = 6
+file = { format = "akp", section = "Zone", field = "playback" }
+source = "both"
+notes = "Observed: 0 = as sample. The spec's order (0 no looping ... 6 as sample) conflicts with that, so the value names are left unassigned; see discrepancies.md."
+
+[[param]]
+id = "zone.velocity_start"
+scope = "zone"
+label = "Velocity > start"
+section = 0x06
+set_item = 0x0A
+get_item = 0x2A
+index = { name = "zone", min = 1, max = 4 }
+encoding = "signed14"
+min = -9999
+max = 9999
+file = { format = "akp", section = "Zone", field = "velocity_start" }
+source = "both"
+
+[[param]]
+id = "zone.high_velocity"
+scope = "zone"
+label = "High velocity"
+section = 0x06
+set_item = 0x0B
+get_item = 0x2B
+index = { name = "zone", min = 1, max = 4 }
+encoding = "u7"
+min = 0
+max = 127
+source = "spec"
+
+[[param]]
+id = "zone.low_velocity"
+scope = "zone"
+label = "Low velocity"
+section = 0x06
+set_item = 0x0C
+get_item = 0x2C
+index = { name = "zone", min = 1, max = 4 }
+encoding = "u7"
+min = 0
+max = 127
+source = "spec"
+
+[[param]]
+id = "zone.mute"
+scope = "zone"
+label = "Zone mute"
+section = 0x06
+set_item = 0x0D
+get_item = 0x2D
+index = { name = "zone", min = 1, max = 4 }
+encoding = "bool"
+min = 0
+max = 1
+source = "spec"
+
+[[param]]
+id = "zone.solo"
+scope = "zone"
+label = "Zone solo"
+section = 0x06
+set_item = 0x0E
+get_item = 0x2E
+index = { name = "zone", min = 1, max = 4 }
+encoding = "bool"
+min = 0
+max = 1
+source = "both"
+notes = "The docs list 0E as \"solo/mute zone\"; the spec separates mute (0D) and solo (0E)."
+
+# ------------------------------------------------------------ keygroup
+
+[[param]]
+id = "keygroup.low_key"
+scope = "keygroup"
+label = "Low key"
+section = 0x08
+set_item = 0x04
+get_item = 0x0A
+encoding = "u7"
+min = 21
+max = 127
+units = "MIDI note"
+file = { format = "akp", section = "Kloc", field = "low_key" }
+source = "both"
+notes = "ak.Sys always sends low and high together."
+
+[[param]]
+id = "keygroup.high_key"
+scope = "keygroup"
+label = "High key"
+section = 0x08
+set_item = 0x05
+get_item = 0x0B
+encoding = "u7"
+min = 21
+max = 127
+units = "MIDI note"
+file = { format = "akp", section = "Kloc", field = "high_key" }
+source = "both"
+
+[[param]]
+id = "keygroup.mute_group"
+scope = "keygroup"
+label = "Mute group"
+section = 0x08
+set_item = 0x06
+get_item = 0x0C
+encoding = "u7"
+min = 0
+max = 32
+file = { format = "akp", section = "Kloc", field = "mute_group" }
+source = "both"
+notes = "0 = off."
+
+[[param]]
+id = "keygroup.fx_override"
+scope = "keygroup"
+label = "FX override"
+section = 0x08
+set_item = 0x07
+get_item = 0x0D
+encoding = "enum"
+list = "fx_bus"
+min = 0
+max = 4
+file = { format = "akp", section = "Kloc", field = "fx_override" }
+source = "both"
+
+[[param]]
+id = "keygroup.fx_send"
+scope = "keygroup"
+label = "FX send"
+section = 0x08
+set_item = 0x08
+get_item = 0x0E
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "Kloc", field = "fx_send" }
+source = "both"
+
+[[param]]
+id = "keygroup.velocity_crossfade"
+scope = "keygroup"
+label = "Velocity crossfade"
+section = 0x08
+set_item = 0x09
+get_item = 0x0F
+encoding = "bool"
+min = 0
+max = 1
+file = { format = "akp", section = "Kloc", field = "velocity_crossfade" }
+source = "both"
+notes = "The spec names this zone crossfade."
+
+[[param]]
+id = "keygroup.semitone"
+scope = "keygroup"
+label = "Semitone tune"
+section = 0x08
+set_item = 0x10
+get_item = 0x18
+encoding = "signed7"
+min = -36
+max = 36
+file = { format = "akp", section = "Kloc", field = "semitone" }
+source = "both"
+
+[[param]]
+id = "keygroup.fine"
+scope = "keygroup"
+label = "Fine tune"
+section = 0x08
+set_item = 0x11
+get_item = 0x19
+encoding = "signed7"
+min = -50
+max = 50
+file = { format = "akp", section = "Kloc", field = "fine" }
+source = "both"
+
+[[param]]
+id = "keygroup.level"
+scope = "keygroup"
+label = "Level"
+section = 0x08
+set_item = 0x12
+get_item = 0x1A
+encoding = "enum"
+list = "keygroup_level"
+min = 0
+max = 10
+units = "dB"
+source = "both"
+notes = "Spec: 0-10 in 6 dB steps (5 = 0 dB). The docs tentatively describe item 12 as signed -30..+30 dB; unverified. See discrepancies.md."
+
+[[param]]
+id = "keygroup.pitch_mod_amount"
+scope = "keygroup"
+label = "Pitch mod amount"
+section = 0x08
+set_item = 0x13
+get_item = 0x1B
+index = { name = "pitch_mod", min = 1, max = 2 }
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "Kloc", field = "pitch_mod_{n}" }
+source = "both"
+
+[[param]]
+id = "keygroup.amp_mod_amount"
+scope = "keygroup"
+label = "Amp mod amount"
+section = 0x08
+set_item = 0x14
+get_item = 0x1C
+index = { name = "amp_mod", min = 1, max = 1 }
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "Kloc", field = "amp_mod" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_type"
+scope = "keygroup"
+label = "Filter type"
+section = 0x08
+set_item = 0x20
+get_item = 0x28
+encoding = "enum"
+list = "filter_type"
+min = 0
+max = 25
+file = { format = "akp", section = "Filter", field = "type" }
+source = "both"
+
+[[param]]
+id = "keygroup.cutoff"
+scope = "keygroup"
+label = "Cutoff"
+section = 0x08
+set_item = 0x21
+get_item = 0x29
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "Filter", field = "cutoff" }
+source = "both"
+
+[[param]]
+id = "keygroup.resonance"
+scope = "keygroup"
+label = "Resonance"
+section = 0x08
+set_item = 0x22
+get_item = 0x2A
+encoding = "u7"
+min = 0
+max = 15
+file = { format = "akp", section = "Filter", field = "resonance" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_keyboard_tracking"
+scope = "keygroup"
+label = "Filter keyboard tracking"
+section = 0x08
+set_item = 0x23
+get_item = 0x2B
+encoding = "signed7"
+min = -36
+max = 36
+file = { format = "akp", section = "Filter", field = "keyboard_tracking" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_mod_amount"
+scope = "keygroup"
+label = "Filter mod amount"
+section = 0x08
+set_item = 0x24
+get_item = 0x2C
+index = { name = "filter_mod", min = 1, max = 3 }
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "Filter", field = "mod_{n}" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_attenuation"
+scope = "keygroup"
+label = "Filter attenuation"
+section = 0x08
+set_item = 0x25
+get_item = 0x2D
+encoding = "enum"
+list = "filter_attenuation"
+min = 0
+max = 5
+file = { format = "akp", section = "Filter", field = "attenuation" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_env_attack"
+scope = "keygroup"
+label = "Filter env attack"
+section = 0x08
+set_item = 0x30
+get_item = 0x40
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "FilterEnv", field = "attack" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_env_velocity_attack"
+scope = "keygroup"
+label = "Filter env velocity > attack"
+section = 0x08
+set_item = 0x31
+get_item = 0x41
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "FilterEnv", field = "velocity_attack" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_env_decay"
+scope = "keygroup"
+label = "Filter env decay"
+section = 0x08
+set_item = 0x32
+get_item = 0x42
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "FilterEnv", field = "decay" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_env_sustain"
+scope = "keygroup"
+label = "Filter env sustain"
+section = 0x08
+set_item = 0x33
+get_item = 0x43
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "FilterEnv", field = "sustain" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_env_release"
+scope = "keygroup"
+label = "Filter env release"
+section = 0x08
+set_item = 0x34
+get_item = 0x44
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "FilterEnv", field = "release" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_env_velocity_release"
+scope = "keygroup"
+label = "Filter env velocity > release"
+section = 0x08
+set_item = 0x35
+get_item = 0x45
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "FilterEnv", field = "velocity_release" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_env_keyscale"
+scope = "keygroup"
+label = "Filter env keyscale"
+section = 0x08
+set_item = 0x36
+get_item = 0x46
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "FilterEnv", field = "keyscale" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_env_depth"
+scope = "keygroup"
+label = "Filter env depth"
+section = 0x08
+set_item = 0x37
+get_item = 0x47
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "FilterEnv", field = "depth" }
+source = "both"
+
+[[param]]
+id = "keygroup.filter_env_off_release"
+scope = "keygroup"
+label = "Filter env off velocity > release"
+section = 0x08
+set_item = 0x38
+get_item = 0x48
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "FilterEnv", field = "off_release" }
+source = "both"
+
+[[param]]
+id = "keygroup.amp_env_attack"
+scope = "keygroup"
+label = "Amp env attack"
+section = 0x08
+set_item = 0x50
+get_item = 0x58
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "AmpEnv", field = "attack" }
+source = "both"
+
+[[param]]
+id = "keygroup.amp_env_velocity_attack"
+scope = "keygroup"
+label = "Amp env velocity > attack"
+section = 0x08
+set_item = 0x51
+get_item = 0x59
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "AmpEnv", field = "velocity_attack" }
+source = "both"
+
+[[param]]
+id = "keygroup.amp_env_decay"
+scope = "keygroup"
+label = "Amp env decay"
+section = 0x08
+set_item = 0x52
+get_item = 0x5A
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "AmpEnv", field = "decay" }
+source = "both"
+
+[[param]]
+id = "keygroup.amp_env_sustain"
+scope = "keygroup"
+label = "Amp env sustain"
+section = 0x08
+set_item = 0x53
+get_item = 0x5B
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "AmpEnv", field = "sustain" }
+source = "both"
+
+[[param]]
+id = "keygroup.amp_env_release"
+scope = "keygroup"
+label = "Amp env release"
+section = 0x08
+set_item = 0x54
+get_item = 0x5C
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "AmpEnv", field = "release" }
+source = "both"
+
+[[param]]
+id = "keygroup.amp_env_velocity_release"
+scope = "keygroup"
+label = "Amp env velocity > release"
+section = 0x08
+set_item = 0x55
+get_item = 0x5D
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "AmpEnv", field = "velocity_release" }
+source = "both"
+
+[[param]]
+id = "keygroup.amp_env_keyscale"
+scope = "keygroup"
+label = "Amp env keyscale"
+section = 0x08
+set_item = 0x56
+get_item = 0x5E
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "AmpEnv", field = "keyscale" }
+source = "both"
+
+[[param]]
+id = "keygroup.amp_env_off_release"
+scope = "keygroup"
+label = "Amp env off velocity > release"
+section = 0x08
+set_item = 0x57
+get_item = 0x5F
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "AmpEnv", field = "off_release" }
+source = "both"
+
+[[param]]
+id = "keygroup.aux_env_rate"
+scope = "keygroup"
+label = "Aux env rate"
+section = 0x08
+set_item = 0x60
+get_item = 0x68
+index = { name = "rate", min = 1, max = 4 }
+encoding = "u7"
+min = 0
+max = 100
+source = "both"
+notes = "Aux envelope offsets in .akp are not yet mapped."
+
+[[param]]
+id = "keygroup.aux_env_velocity_r1"
+scope = "keygroup"
+label = "Aux env velocity > R1"
+section = 0x08
+set_item = 0x61
+get_item = 0x69
+index = { name = "rate", min = 1, max = 1 }
+encoding = "signed7"
+min = -100
+max = 100
+source = "both"
+notes = "Same item as aux_env_velocity_r4; the index byte selects R1. Aux envelope offsets in .akp are not yet mapped."
+
+[[param]]
+id = "keygroup.aux_env_velocity_r4"
+scope = "keygroup"
+label = "Aux env velocity > R4"
+section = 0x08
+set_item = 0x61
+get_item = 0x69
+index = { name = "rate", min = 4, max = 4 }
+encoding = "signed7"
+min = -100
+max = 100
+source = "both"
+notes = "Same item as aux_env_velocity_r1; the index byte selects R4. Aux envelope offsets in .akp are not yet mapped."
+
+[[param]]
+id = "keygroup.aux_env_keyscale"
+scope = "keygroup"
+label = "Aux env keyboard > R2/R4"
+section = 0x08
+set_item = 0x62
+get_item = 0x6A
+encoding = "signed7"
+min = -100
+max = 100
+source = "both"
+notes = "Aux envelope offsets in .akp are not yet mapped."
+
+[[param]]
+id = "keygroup.aux_env_level"
+scope = "keygroup"
+label = "Aux env level"
+section = 0x08
+set_item = 0x63
+get_item = 0x6B
+index = { name = "level", min = 1, max = 4 }
+encoding = "u7"
+min = 0
+max = 100
+source = "both"
+notes = "Aux envelope offsets in .akp are not yet mapped."
+
+[[param]]
+id = "keygroup.aux_env_off_release"
+scope = "keygroup"
+label = "Aux env off velocity > R4"
+section = 0x08
+set_item = 0x64
+get_item = 0x6C
+index = { name = "rate", min = 4, max = 4 }
+encoding = "signed7"
+min = -100
+max = 100
+source = "both"
+notes = "Aux envelope offsets in .akp are not yet mapped."
+
+# ------------------------------------------------------------ program
+
+[[param]]
+id = "program.name"
+scope = "program"
+label = "Name"
+section = 0x0A
+set_item = 0x09
+get_item = 0x13
+encoding = "string"
+source = "both"
+notes = "Up to 20 characters."
+
+[[param]]
+id = "program.program_number"
+scope = "program"
+label = "Program number"
+section = 0x0A
+set_item = 0x0A
+get_item = 0x11
+source = "spec"
+notes = "Composite: on/off byte, then the number 0-127 (shown as 1-128 on the sampler). The number byte is only needed when switching on."
+
+[[param]]
+id = "program.keygroup_crossfade"
+scope = "program"
+label = "Keygroup crossfade"
+section = 0x0A
+set_item = 0x0D
+get_item = 0x15
+encoding = "bool"
+min = 0
+max = 1
+file = { format = "akp", section = "Prg", field = "keygroup_crossfade" }
+source = "both"
+
+[[param]]
+id = "program.keygroup_count"
+scope = "program"
+label = "Number of keygroups"
+section = 0x0A
+get_item = 0x14
+encoding = "u7"
+min = 1
+max = 99
+source = "both"
+notes = "Change with add (0B) and delete (0C) keygroup commands."
+
+[[param]]
+id = "program.loudness"
+scope = "program"
+label = "Loudness"
+section = 0x0A
+set_item = 0x20
+get_item = 0x28
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "Out", field = "loudness" }
+source = "both"
+
+[[param]]
+id = "program.velocity_sensitivity"
+scope = "program"
+label = "Velocity sensitivity"
+section = 0x0A
+set_item = 0x21
+get_item = 0x29
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "Out", field = "velocity_sensitivity" }
+source = "both"
+
+[[param]]
+id = "program.amp_mod_source"
+scope = "program"
+label = "Amp mod source"
+section = 0x0A
+set_item = 0x22
+get_item = 0x2A
+index = { name = "amp_mod", min = 1, max = 2 }
+encoding = "enum"
+list = "mod_source"
+min = 0
+max = 14
+source = "spec"
+notes = "ak.Sys shows slot 1 as KBD and slot 2 as AFT."
+
+[[param]]
+id = "program.amp_mod_amount"
+scope = "program"
+label = "Amp mod amount"
+section = 0x0A
+set_item = 0x23
+get_item = 0x2B
+index = { name = "amp_mod", min = 1, max = 2 }
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "Out", field = "amp_mod_{n}" }
+source = "both"
+
+[[param]]
+id = "program.pan_mod_source"
+scope = "program"
+label = "Pan mod source"
+section = 0x0A
+set_item = 0x24
+get_item = 0x2C
+index = { name = "pan_mod", min = 1, max = 3 }
+encoding = "enum"
+list = "mod_source"
+min = 0
+max = 14
+source = "spec"
+notes = "ak.Sys shows slots 1-3 as LFO2, KBD and wheel."
+
+[[param]]
+id = "program.pan_mod_amount"
+scope = "program"
+label = "Pan mod amount"
+section = 0x0A
+set_item = 0x25
+get_item = 0x2D
+index = { name = "pan_mod", min = 1, max = 3 }
+encoding = "signed7"
+min = -100
+max = 100
+file = { format = "akp", section = "Out", field = "pan_mod_{n}" }
+source = "both"
+
+[[param]]
+id = "program.semitone"
+scope = "program"
+label = "Semitone tune"
+section = 0x0A
+set_item = 0x30
+get_item = 0x38
+encoding = "signed7"
+min = -36
+max = 36
+file = { format = "akp", section = "Tune", field = "semitone" }
+source = "both"
+
+[[param]]
+id = "program.fine"
+scope = "program"
+label = "Fine tune"
+section = 0x0A
+set_item = 0x31
+get_item = 0x39
+encoding = "signed7"
+min = -50
+max = 50
+file = { format = "akp", section = "Tune", field = "fine" }
+source = "both"
+
+[[param]]
+id = "program.tune_template"
+scope = "program"
+label = "Tuning template"
+section = 0x0A
+set_item = 0x32
+get_item = 0x3A
+encoding = "enum"
+list = "tune_template"
+min = 0
+max = 7
+source = "spec"
+
+[[param]]
+id = "program.user_tune_template"
+scope = "program"
+label = "User tuning"
+section = 0x0A
+set_item = 0x33
+get_item = 0x3B
+source = "spec"
+notes = "Composite: 12 signed7 fine-tune values (-50..+50), C first, sent in one message."
+
+[[param]]
+id = "program.tune_key"
+scope = "program"
+label = "Tuning key"
+section = 0x0A
+set_item = 0x34
+get_item = 0x3C
+encoding = "enum"
+list = "key"
+min = 0
+max = 11
+source = "spec"
+
+[[param]]
+id = "program.bend_up"
+scope = "program"
+label = "Pitch bend up"
+section = 0x0A
+set_item = 0x40
+get_item = 0x48
+encoding = "u7"
+min = 0
+max = 24
+units = "semitones"
+file = { format = "akp", section = "Tune", field = "bend_up" }
+source = "both"
+
+[[param]]
+id = "program.bend_down"
+scope = "program"
+label = "Pitch bend down"
+section = 0x0A
+set_item = 0x41
+get_item = 0x49
+encoding = "u7"
+min = 0
+max = 24
+units = "semitones"
+file = { format = "akp", section = "Tune", field = "bend_down" }
+source = "both"
+
+[[param]]
+id = "program.bend_mode"
+scope = "program"
+label = "Bend mode"
+section = 0x0A
+set_item = 0x42
+get_item = 0x4A
+encoding = "enum"
+values = ["NORMAL", "HELD"]
+min = 0
+max = 1
+file = { format = "akp", section = "Tune", field = "bend_mode" }
+source = "both"
+
+[[param]]
+id = "program.aftertouch_pitch"
+scope = "program"
+label = "Aftertouch pitch"
+section = 0x0A
+set_item = 0x43
+get_item = 0x4B
+encoding = "signed7"
+min = -24
+max = 24
+units = "semitones"
+file = { format = "akp", section = "Tune", field = "aftertouch" }
+source = "both"
+notes = "Observed range +/-24; the spec gives +/-12."
+
+[[param]]
+id = "program.legato"
+scope = "program"
+label = "Mono legato"
+section = 0x0A
+set_item = 0x44
+get_item = 0x4C
+encoding = "bool"
+min = 0
+max = 1
+file = { format = "akp", section = "Tune", field = "legato" }
+source = "both"
+
+[[param]]
+id = "program.portamento"
+scope = "program"
+label = "Portamento"
+section = 0x0A
+set_item = 0x45
+get_item = 0x4D
+encoding = "bool"
+min = 0
+max = 1
+file = { format = "akp", section = "Tune", field = "portamento" }
+source = "both"
+
+[[param]]
+id = "program.portamento_mode"
+scope = "program"
+label = "Portamento mode"
+section = 0x0A
+set_item = 0x46
+get_item = 0x4E
+encoding = "enum"
+values = ["TIME", "RATE"]
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "program.portamento_time"
+scope = "program"
+label = "Portamento time"
+section = 0x0A
+set_item = 0x47
+get_item = 0x4F
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "Tune", field = "portamento_time" }
+source = "both"
+
+[[param]]
+id = "program.lfo_rate"
+scope = "program"
+label = "LFO rate"
+section = 0x0A
+set_item = 0x50
+get_item = 0x60
+index = { name = "lfo", min = 1, max = 2 }
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "Lfo{n}", field = "rate" }
+source = "both"
+notes = "Ignored while LFO2 follows MIDI clock."
+
+[[param]]
+id = "program.lfo_delay"
+scope = "program"
+label = "LFO delay"
+section = 0x0A
+set_item = 0x51
+get_item = 0x61
+index = { name = "lfo", min = 1, max = 2 }
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "Lfo{n}", field = "delay" }
+source = "both"
+notes = "Ignored while LFO2 follows MIDI clock."
+
+[[param]]
+id = "program.lfo_depth"
+scope = "program"
+label = "LFO depth"
+section = 0x0A
+set_item = 0x52
+get_item = 0x62
+index = { name = "lfo", min = 1, max = 2 }
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "Lfo{n}", field = "depth" }
+source = "both"
+notes = "Ignored while LFO2 follows MIDI clock."
+
+[[param]]
+id = "program.lfo_waveform"
+scope = "program"
+label = "LFO waveform"
+section = 0x0A
+set_item = 0x53
+get_item = 0x63
+index = { name = "lfo", min = 1, max = 2 }
+encoding = "enum"
+list = "lfo_waveform"
+min = 0
+max = 8
+file = { format = "akp", section = "Lfo{n}", field = "waveform" }
+source = "both"
+
+[[param]]
+id = "program.lfo1_key_sync"
+scope = "program"
+label = "LFO1 key sync"
+section = 0x0A
+set_item = 0x54
+get_item = 0x64
+index = { name = "lfo", min = 1, max = 1 }
+encoding = "bool"
+min = 0
+max = 1
+file = { format = "akp", section = "Lfo1", field = "key_sync" }
+source = "both"
+
+[[param]]
+id = "program.lfo2_retrigger"
+scope = "program"
+label = "LFO2 retrigger"
+section = 0x0A
+set_item = 0x55
+get_item = 0x65
+index = { name = "lfo", min = 2, max = 2 }
+encoding = "bool"
+min = 0
+max = 1
+file = { format = "akp", section = "Lfo2", field = "retrigger" }
+source = "both"
+
+[[param]]
+id = "program.lfo_rate_mod_source"
+scope = "program"
+label = "LFO rate mod source"
+section = 0x0A
+set_item = 0x56
+get_item = 0x66
+index = { name = "lfo", min = 1, max = 2 }
+encoding = "enum"
+list = "mod_source"
+min = 0
+max = 14
+file = { format = "akp", section = "Mods", field = "lfo{n}_rate_source" }
+source = "both"
+
+[[param]]
+id = "program.lfo_rate_mod_amount"
+scope = "program"
+label = "LFO rate mod amount"
+section = 0x0A
+set_item = 0x57
+get_item = 0x67
+index = { name = "lfo", min = 1, max = 2 }
+encoding = "signed7"
+min = -100
+max = 100
+source = "spec"
+notes = "Probably the byte after the source in the mods chunk; unconfirmed."
+
+[[param]]
+id = "program.lfo_delay_mod_source"
+scope = "program"
+label = "LFO delay mod source"
+section = 0x0A
+set_item = 0x58
+get_item = 0x68
+index = { name = "lfo", min = 1, max = 2 }
+encoding = "enum"
+list = "mod_source"
+min = 0
+max = 14
+file = { format = "akp", section = "Mods", field = "lfo{n}_delay_source" }
+source = "both"
+
+[[param]]
+id = "program.lfo_delay_mod_amount"
+scope = "program"
+label = "LFO delay mod amount"
+section = 0x0A
+set_item = 0x59
+get_item = 0x69
+index = { name = "lfo", min = 1, max = 2 }
+encoding = "signed7"
+min = -100
+max = 100
+source = "spec"
+notes = "Probably the byte after the source in the mods chunk; unconfirmed."
+
+[[param]]
+id = "program.lfo_depth_mod_source"
+scope = "program"
+label = "LFO depth mod source"
+section = 0x0A
+set_item = 0x5A
+get_item = 0x6A
+index = { name = "lfo", min = 1, max = 2 }
+encoding = "enum"
+list = "mod_source"
+min = 0
+max = 14
+file = { format = "akp", section = "Mods", field = "lfo{n}_depth_source" }
+source = "both"
+
+[[param]]
+id = "program.lfo_depth_mod_amount"
+scope = "program"
+label = "LFO depth mod amount"
+section = 0x0A
+set_item = 0x5B
+get_item = 0x6B
+index = { name = "lfo", min = 1, max = 2 }
+encoding = "signed7"
+min = -100
+max = 100
+source = "spec"
+notes = "Probably the byte after the source in the mods chunk; unconfirmed."
+
+[[param]]
+id = "program.lfo1_wheel"
+scope = "program"
+label = "LFO1 mod wheel amount"
+section = 0x0A
+set_item = 0x5C
+get_item = 0x6C
+index = { name = "lfo", min = 1, max = 1 }
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akp", section = "Lfo1", field = "wheel" }
+source = "both"
+
+[[param]]
+id = "program.lfo1_aftertouch"
+scope = "program"
+label = "LFO1 aftertouch amount"
+section = 0x0A
+set_item = 0x5D
+get_item = 0x6D
+index = { name = "lfo", min = 1, max = 1 }
+encoding = "u7"
+min = 0
+max = 100
+source = "spec"
+
+[[param]]
+id = "program.lfo2_clock_sync"
+scope = "program"
+label = "LFO2 MIDI clock sync"
+section = 0x0A
+set_item = 0x5E
+get_item = 0x6E
+index = { name = "lfo", min = 2, max = 2 }
+encoding = "bool"
+min = 0
+max = 1
+source = "spec"
+
+[[param]]
+id = "program.lfo2_clock_division"
+scope = "program"
+label = "LFO2 clock division"
+section = 0x0A
+set_item = 0x5F
+get_item = 0x6F
+index = { name = "lfo", min = 2, max = 2 }
+encoding = "enum"
+list = "lfo_clock_division"
+min = 0
+max = 68
+file = { format = "akp", section = "Lfo2", field = "clock_division" }
+source = "both"
+
+[[param]]
+id = "program.kg_pitch_mod_source"
+scope = "program"
+label = "Keygroup pitch mod source"
+section = 0x0A
+set_item = 0x70
+get_item = 0x74
+index = { name = "pitch_mod", min = 1, max = 2 }
+encoding = "enum"
+list = "mod_source"
+min = 0
+max = 14
+file = { format = "akp", section = "Mods", field = "pitch_source_{n}" }
+source = "both"
+notes = "Source for keygroup.pitch_mod_amount."
+
+[[param]]
+id = "program.kg_amp_mod_source"
+scope = "program"
+label = "Keygroup amp mod source"
+section = 0x0A
+set_item = 0x71
+get_item = 0x75
+index = { name = "amp_mod", min = 1, max = 1 }
+encoding = "enum"
+list = "mod_source"
+min = 0
+max = 14
+file = { format = "akp", section = "Mods", field = "amp_source" }
+source = "both"
+notes = "Source for keygroup.amp_mod_amount."
+
+[[param]]
+id = "program.filter_mod_source"
+scope = "program"
+label = "Filter mod source"
+section = 0x0A
+set_item = 0x72
+get_item = 0x76
+index = { name = "filter_mod", min = 1, max = 3 }
+encoding = "enum"
+list = "mod_source"
+min = 0
+max = 14
+file = { format = "akp", section = "Mods", field = "filter_source_{n}" }
+source = "both"
+notes = "Source for keygroup.filter_mod_amount."
+
+# ------------------------------------------------------------ multi
+
+[[param]]
+id = "multi.name"
+scope = "multi"
+label = "Name"
+section = 0x0C
+set_item = 0x30
+get_item = 0x43
+encoding = "string"
+source = "both"
+
+[[param]]
+id = "multi.program_number"
+scope = "multi"
+label = "Multi number"
+section = 0x0C
+set_item = 0x31
+get_item = 0x41
+source = "spec"
+notes = "Composite: on/off byte, then the number 0-127 (shown as 1-128)."
+
+[[param]]
+id = "multi.part_count"
+scope = "multi"
+label = "Number of parts"
+section = 0x0C
+get_item = 0x44
+encoding = "u7"
+min = 31
+max = 127
+source = "both"
+notes = "Reply is the part count minus 1: 31, 63 or 127."
+
+[[param]]
+id = "multi.new_part_count"
+scope = "multi"
+label = "Parts in new multis"
+section = 0x0C
+set_item = 0x01
+encoding = "enum"
+values = ["32", "64", "128"]
+min = 0
+max = 2
+source = "both"
+notes = "Applies to multis created afterwards with 0C 02."
+
+# ------------------------------------------------------------ multi_part
+
+[[param]]
+id = "multi_part.midi_channel"
+scope = "multi_part"
+label = "MIDI channel"
+section = 0x0C
+set_item = 0x10
+get_item = 0x20
+index = { name = "part", min = 0, max = 127 }
+encoding = "enum"
+list = "midi_channel"
+min = 0
+max = 31
+file = { format = "akm", section = "Part", field = "midi_channel" }
+source = "both"
+
+[[param]]
+id = "multi_part.mute"
+scope = "multi_part"
+label = "Mute"
+section = 0x0C
+set_item = 0x11
+get_item = 0x21
+index = { name = "part", min = 0, max = 127 }
+encoding = "bool"
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "multi_part.solo"
+scope = "multi_part"
+label = "Solo"
+section = 0x0C
+set_item = 0x12
+get_item = 0x22
+index = { name = "part", min = 0, max = 127 }
+encoding = "bool"
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "multi_part.level"
+scope = "multi_part"
+label = "Level"
+section = 0x0C
+set_item = 0x13
+get_item = 0x23
+index = { name = "part", min = 0, max = 127 }
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akm", section = "Part", field = "level" }
+source = "both"
+
+[[param]]
+id = "multi_part.output"
+scope = "multi_part"
+label = "Output"
+section = 0x0C
+set_item = 0x14
+get_item = 0x24
+index = { name = "part", min = 0, max = 127 }
+encoding = "enum"
+list = "part_output"
+min = 0
+max = 23
+file = { format = "akm", section = "Part", field = "output" }
+source = "both"
+
+[[param]]
+id = "multi_part.pan"
+scope = "multi_part"
+label = "Pan"
+section = 0x0C
+set_item = 0x15
+get_item = 0x25
+index = { name = "part", min = 0, max = 127 }
+encoding = "offset"
+offset = 64
+min = -50
+max = 50
+file = { format = "akm", section = "Part", field = "pan" }
+source = "both"
+notes = "-50 = L50, +50 = R50."
+
+[[param]]
+id = "multi_part.fx_channel"
+scope = "multi_part"
+label = "FX channel"
+section = 0x0C
+set_item = 0x16
+get_item = 0x26
+index = { name = "part", min = 0, max = 127 }
+encoding = "enum"
+list = "fx_bus"
+min = 0
+max = 4
+file = { format = "akm", section = "Part", field = "fx_channel" }
+source = "both"
+
+[[param]]
+id = "multi_part.fx_send"
+scope = "multi_part"
+label = "FX send"
+section = 0x0C
+set_item = 0x17
+get_item = 0x27
+index = { name = "part", min = 0, max = 127 }
+encoding = "u7"
+min = 0
+max = 100
+file = { format = "akm", section = "Part", field = "fx_send" }
+source = "both"
+
+[[param]]
+id = "multi_part.fine"
+scope = "multi_part"
+label = "Fine tune"
+section = 0x0C
+set_item = 0x18
+get_item = 0x28
+index = { name = "part", min = 0, max = 127 }
+encoding = "offset"
+offset = 50
+min = -50
+max = 50
+units = "cents"
+file = { format = "akm", section = "Part", field = "fine" }
+source = "both"
+
+[[param]]
+id = "multi_part.semitone"
+scope = "multi_part"
+label = "Transpose"
+section = 0x0C
+set_item = 0x19
+get_item = 0x29
+index = { name = "part", min = 0, max = 127 }
+encoding = "offset"
+offset = 36
+min = -36
+max = 36
+units = "semitones"
+file = { format = "akm", section = "Part", field = "semitone" }
+source = "both"
+
+[[param]]
+id = "multi_part.low_key"
+scope = "multi_part"
+label = "Low key"
+section = 0x0C
+set_item = 0x1A
+get_item = 0x2A
+index = { name = "part", min = 0, max = 127 }
+encoding = "u7"
+min = 21
+max = 127
+units = "MIDI note"
+file = { format = "akm", section = "Part", field = "low_key" }
+source = "both"
+
+[[param]]
+id = "multi_part.high_key"
+scope = "multi_part"
+label = "High key"
+section = 0x0C
+set_item = 0x1B
+get_item = 0x2B
+index = { name = "part", min = 0, max = 127 }
+encoding = "u7"
+min = 21
+max = 127
+units = "MIDI note"
+file = { format = "akm", section = "Part", field = "high_key" }
+source = "both"
+
+[[param]]
+id = "multi_part.program"
+scope = "multi_part"
+label = "Program"
+section = 0x0C
+set_item = 0x33
+get_item = 0x45
+index = { name = "part", min = 0, max = 127 }
+encoding = "string"
+source = "both"
+notes = "Set by name (spec only); get observed. Empty reply = no program. In .akm the name is length-prefixed at part +1; s5k-formats reads it with part_program()."
+
+[[param]]
+id = "multi_part.program_index"
+scope = "multi_part"
+label = "Program (by index)"
+section = 0x0C
+set_item = 0x32
+index = { name = "part", min = 0, max = 127 }
+encoding = "u14"
+min = 0
+max = 16383
+source = "both"
+notes = "Assigns the program at this memory index."
+
+# ------------------------------------------------------------ sample
+
+[[param]]
+id = "sample.name"
+scope = "sample"
+label = "Name"
+section = 0x0E
+set_item = 0x09
+get_item = 0x14
+encoding = "string"
+source = "both"
+
+[[param]]
+id = "sample.type"
+scope = "sample"
+label = "Storage"
+section = 0x0E
+get_item = 0x30
+encoding = "enum"
+values = ["RAM", "VIRTUAL"]
+min = 0
+max = 1
+source = "both"
+notes = "First byte of the 0x34 block reply, which the docs read as the high byte of channels."
+
+[[param]]
+id = "sample.channels"
+scope = "sample"
+label = "Channels"
+section = 0x0E
+get_item = 0x31
+encoding = "u7"
+min = 1
+max = 2
+file = { format = "wav", section = "fmt", field = "channels" }
+source = "both"
+
+[[param]]
+id = "sample.length"
+scope = "sample"
+label = "Length"
+section = 0x0E
+get_item = 0x32
+encoding = "u28"
+min = 0
+units = "frames"
+source = "both"
+notes = "In a .wav, derived from the data chunk size (Wav::frames)."
+
+[[param]]
+id = "sample.rate"
+scope = "sample"
+label = "Sample rate"
+section = 0x0E
+get_item = 0x33
+encoding = "u28"
+min = 0
+units = "Hz"
+file = { format = "wav", section = "fmt", field = "sample_rate" }
+source = "both"
+
+[[param]]
+id = "sample.start"
+scope = "sample"
+label = "Play start"
+section = 0x0E
+set_item = 0x20
+get_item = 0x40
+encoding = "u28"
+min = 0
+units = "frames"
+file = { format = "wav", section = "smpl", field = "play_start" }
+source = "both"
+notes = "Set command untested on hardware."
+
+[[param]]
+id = "sample.end"
+scope = "sample"
+label = "Play end"
+section = 0x0E
+set_item = 0x21
+get_item = 0x41
+encoding = "u28"
+min = 0
+units = "frames"
+file = { format = "wav", section = "smpl", field = "play_end" }
+source = "both"
+notes = "Set command untested on hardware."
+
+[[param]]
+id = "sample.root_note"
+scope = "sample"
+label = "Original pitch"
+section = 0x0E
+set_item = 0x22
+get_item = 0x42
+encoding = "u7"
+min = 21
+max = 127
+units = "MIDI note"
+file = { format = "wav", section = "smpl", field = "root_note" }
+source = "both"
+notes = "Set command untested on hardware."
+
+[[param]]
+id = "sample.semitone"
+scope = "sample"
+label = "Semitone tune"
+section = 0x0E
+set_item = 0x23
+get_item = 0x43
+encoding = "signed7"
+min = -36
+max = 36
+file = { format = "wav", section = "smpl", field = "semitone" }
+source = "both"
+notes = "Set command untested on hardware."
+
+[[param]]
+id = "sample.fine"
+scope = "sample"
+label = "Fine tune"
+section = 0x0E
+set_item = 0x24
+get_item = 0x44
+encoding = "signed7"
+min = -50
+max = 50
+file = { format = "wav", section = "smpl", field = "fine" }
+source = "both"
+notes = "Set command untested on hardware."
+
+[[param]]
+id = "sample.playback"
+scope = "sample"
+label = "Playback mode"
+section = 0x0E
+set_item = 0x28
+get_item = 0x48
+encoding = "enum"
+list = "sample_playback"
+min = 0
+max = 5
+source = "spec"
+notes = "Inside the 0x4B block reply (the docs' unknown byte). Set command untested on hardware."
+
+[[param]]
+id = "sample.loop_start"
+scope = "sample"
+label = "Loop start"
+section = 0x0E
+set_item = 0x29
+get_item = 0x49
+encoding = "u28"
+min = 0
+units = "frames"
+file = { format = "wav", section = "smpl", field = "loop_start" }
+source = "both"
+notes = "In .wav, values from FFFFFF00 up mean no loop. Set command untested on hardware."
+
+[[param]]
+id = "sample.loop_end"
+scope = "sample"
+label = "Loop end"
+section = 0x0E
+set_item = 0x2A
+get_item = 0x4A
+encoding = "u28"
+min = 0
+units = "frames"
+file = { format = "wav", section = "smpl", field = "loop_end" }
+source = "both"
+notes = "In .wav, values from FFFFFF00 up mean no loop. Set command untested on hardware."
+
+# ------------------------------------------------------------ fx
+
+[[param]]
+id = "fx.board"
+scope = "fx"
+label = "FX board"
+section = 0x12
+get_item = 0x01
+encoding = "enum"
+values = ["none", "EB20"]
+min = 0
+max = 1
+source = "spec"
+
+[[param]]
+id = "fx.channel_count"
+scope = "fx"
+label = "Number of FX channels"
+section = 0x12
+get_item = 0x10
+encoding = "u7"
+min = 0
+max = 127
+source = "both"
+notes = "4 on the EB20."
+
+[[param]]
+id = "fx.module_count"
+scope = "fx"
+label = "Number of modules"
+section = 0x12
+get_item = 0x11
+index = { name = "channel", min = 0, max = 3 }
+encoding = "u7"
+min = 0
+max = 127
+source = "both"
+notes = "EB20: 6 on FX1/FX2, 2 on RV3/RV4."
+
+[[param]]
+id = "fx.channel_mute"
+scope = "fx"
+label = "Channel mute"
+section = 0x12
+set_item = 0x20
+get_item = 0x21
+index = { name = "channel", min = 0, max = 3 }
+encoding = "bool"
+min = 0
+max = 1
+source = "both"
+notes = "0 = on, 1 = muted."
+
+[[param]]
+id = "fx.module_type"
+scope = "fx"
+label = "Module type"
+section = 0x12
+set_item = 0x30
+get_item = 0x31
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+encoding = "enum"
+list = "fx_module_type"
+min = 0
+max = 16
+source = "both"
+notes = "On the EB20 only modules 2 (modulation, 02-08) and 3 (delay, 0A-0D) of FX1/FX2 can be changed."
+
+[[param]]
+id = "fx.module_active"
+scope = "fx"
+label = "Module on"
+section = 0x12
+set_item = 0x40
+get_item = 0x41
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+encoding = "bool"
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "fx.ringmod.distortion"
+scope = "fx"
+label = "Distortion"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x01
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+notes = "FX1/FX2 module 0."
+
+[[param]]
+id = "fx.ringmod.level"
+scope = "fx"
+label = "Output level"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x01
+fx_param = 1
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.ringmod.freq"
+scope = "fx"
+label = "Ring mod frequency"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x01
+fx_param = 2
+encoding = "signed14"
+min = 1
+max = 5000
+units = "Hz"
+source = "both"
+
+[[param]]
+id = "fx.ringmod.depth"
+scope = "fx"
+label = "Ring mod depth"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x01
+fx_param = 3
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.eq.lo_freq"
+scope = "fx"
+label = "Low freq"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 30
+source = "both"
+notes = "FX1/FX2 module 1. Order from the spec; the docs' screen-order assumption differs. Stepped: 0-30 covers 16-500 Hz."
+
+[[param]]
+id = "fx.eq.lo_gain"
+scope = "fx"
+label = "Low gain"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 1
+encoding = "signed14"
+min = -37
+max = 12
+units = "dB"
+source = "both"
+
+[[param]]
+id = "fx.eq.lm_freq"
+scope = "fx"
+label = "Low-mid freq"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 2
+encoding = "signed14"
+min = 0
+max = 44
+source = "both"
+notes = "Stepped: 0-44 covers 40 Hz-6.3 kHz."
+
+[[param]]
+id = "fx.eq.lm_gain"
+scope = "fx"
+label = "Low-mid gain"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 3
+encoding = "signed14"
+min = -37
+max = 12
+units = "dB"
+source = "both"
+
+[[param]]
+id = "fx.eq.lm_width"
+scope = "fx"
+label = "Low-mid width"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 4
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.eq.hm_freq"
+scope = "fx"
+label = "High-mid freq"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 5
+encoding = "signed14"
+min = 0
+max = 44
+source = "both"
+notes = "Stepped: 0-44 covers 40 Hz-6.3 kHz."
+
+[[param]]
+id = "fx.eq.hm_gain"
+scope = "fx"
+label = "High-mid gain"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 6
+encoding = "signed14"
+min = -37
+max = 12
+units = "dB"
+source = "both"
+
+[[param]]
+id = "fx.eq.hm_width"
+scope = "fx"
+label = "High-mid width"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 7
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.eq.hi_freq"
+scope = "fx"
+label = "High freq"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 8
+encoding = "signed14"
+min = 0
+max = 30
+source = "both"
+notes = "Stepped: 0-30 covers 500 Hz-16 kHz."
+
+[[param]]
+id = "fx.eq.hi_gain"
+scope = "fx"
+label = "High gain"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 9
+encoding = "signed14"
+min = -37
+max = 12
+units = "dB"
+source = "both"
+
+[[param]]
+id = "fx.eq.lm_rate"
+scope = "fx"
+label = "Low-mid sweep rate"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 10
+encoding = "signed14"
+min = 0
+max = 99
+display_scale = 0.1
+source = "both"
+
+[[param]]
+id = "fx.eq.lm_depth"
+scope = "fx"
+label = "Low-mid sweep depth"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 11
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.eq.hm_rate"
+scope = "fx"
+label = "High-mid sweep rate"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 12
+encoding = "signed14"
+min = 0
+max = 99
+display_scale = 0.1
+source = "both"
+
+[[param]]
+id = "fx.eq.hm_depth"
+scope = "fx"
+label = "High-mid sweep depth"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x09
+fx_param = 13
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.chorus.rate"
+scope = "fx"
+label = "Rate"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x02
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 99
+display_scale = 0.1
+source = "both"
+notes = "FX1/FX2 module 2."
+
+[[param]]
+id = "fx.chorus.depth"
+scope = "fx"
+label = "Depth"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x02
+fx_param = 1
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.chorus.feedback"
+scope = "fx"
+label = "Feedback"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x02
+fx_param = 2
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.flanger.rate"
+scope = "fx"
+label = "Rate"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x03
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 99
+display_scale = 0.1
+source = "both"
+notes = "FX1/FX2 module 2."
+
+[[param]]
+id = "fx.flanger.depth"
+scope = "fx"
+label = "Depth"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x03
+fx_param = 1
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.flanger.feedback"
+scope = "fx"
+label = "Feedback"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x03
+fx_param = 2
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.phase.rate"
+scope = "fx"
+label = "Rate"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x04
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 99
+display_scale = 0.1
+source = "both"
+notes = "FX1/FX2 module 2."
+
+[[param]]
+id = "fx.phase.depth"
+scope = "fx"
+label = "Depth"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x04
+fx_param = 1
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.phase.feedback"
+scope = "fx"
+label = "Feedback"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x04
+fx_param = 2
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.rotary.speed1"
+scope = "fx"
+label = "Speed 1"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x05
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 99
+display_scale = 0.1
+source = "both"
+notes = "FX1/FX2 module 2."
+
+[[param]]
+id = "fx.rotary.speed2"
+scope = "fx"
+label = "Speed 2"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x05
+fx_param = 1
+encoding = "signed14"
+min = 0
+max = 99
+display_scale = 0.1
+source = "both"
+
+[[param]]
+id = "fx.rotary.accel"
+scope = "fx"
+label = "Acceleration"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x05
+fx_param = 2
+encoding = "signed14"
+min = 0
+max = 99
+display_scale = 0.1
+source = "both"
+
+[[param]]
+id = "fx.rotary.depth"
+scope = "fx"
+label = "Depth"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x05
+fx_param = 3
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.rotary.initial_speed"
+scope = "fx"
+label = "Initial speed"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x05
+fx_param = 4
+encoding = "enum"
+values = ["Speed 1", "Speed 2"]
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "fx.rotary.midi_controller"
+scope = "fx"
+label = "MIDI controller"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x05
+fx_param = 5
+encoding = "signed14"
+min = 1
+max = 127
+source = "both"
+
+[[param]]
+id = "fx.rotary.midi_mode"
+scope = "fx"
+label = "MIDI mode"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x05
+fx_param = 6
+encoding = "enum"
+values = ["Level", "Toggle"]
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "fx.rotary.midi_channel"
+scope = "fx"
+label = "MIDI channel"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x05
+fx_param = 7
+encoding = "enum"
+list = "midi_channel"
+min = 0
+max = 31
+source = "both"
+
+[[param]]
+id = "fx.fm_pan.fm_rate"
+scope = "fx"
+label = "FM rate"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x06
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 99
+display_scale = 0.1
+source = "both"
+notes = "FX1/FX2 module 2."
+
+[[param]]
+id = "fx.fm_pan.fm_depth"
+scope = "fx"
+label = "FM depth"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x06
+fx_param = 1
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.fm_pan.fm_feedback"
+scope = "fx"
+label = "FM feedback"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x06
+fx_param = 2
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.fm_pan.am_rate"
+scope = "fx"
+label = "AM rate"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x06
+fx_param = 3
+encoding = "signed14"
+min = 0
+max = 99
+display_scale = 0.1
+source = "both"
+
+[[param]]
+id = "fx.fm_pan.am_depth"
+scope = "fx"
+label = "AM depth"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x06
+fx_param = 4
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.fm_pan.am_mode"
+scope = "fx"
+label = "AM mode"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x06
+fx_param = 5
+encoding = "enum"
+values = ["Pan", "L>R", "R>L", "Tremolo"]
+min = 0
+max = 3
+source = "both"
+
+[[param]]
+id = "fx.pitch.l_semitone"
+scope = "fx"
+label = "Left semitone"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x07
+fx_param = 0
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+notes = "FX1/FX2 module 2."
+
+[[param]]
+id = "fx.pitch.l_fine"
+scope = "fx"
+label = "Left fine"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x07
+fx_param = 1
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.pitch.r_semitone"
+scope = "fx"
+label = "Right semitone"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x07
+fx_param = 2
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.pitch.r_fine"
+scope = "fx"
+label = "Right fine"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x07
+fx_param = 3
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.pitch_feedback.l_semitone"
+scope = "fx"
+label = "Left semitone"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x08
+fx_param = 0
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+notes = "FX1/FX2 module 2."
+
+[[param]]
+id = "fx.pitch_feedback.l_fine"
+scope = "fx"
+label = "Left fine"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x08
+fx_param = 1
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.pitch_feedback.l_delay"
+scope = "fx"
+label = "Left delay"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x08
+fx_param = 2
+encoding = "signed14"
+min = 0
+max = 275
+units = "ms"
+source = "both"
+
+[[param]]
+id = "fx.pitch_feedback.l_feedback"
+scope = "fx"
+label = "Left feedback"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x08
+fx_param = 3
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.pitch_feedback.r_semitone"
+scope = "fx"
+label = "Right semitone"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x08
+fx_param = 4
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.pitch_feedback.r_fine"
+scope = "fx"
+label = "Right fine"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x08
+fx_param = 5
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.pitch_feedback.r_delay"
+scope = "fx"
+label = "Right delay"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x08
+fx_param = 6
+encoding = "signed14"
+min = 0
+max = 275
+units = "ms"
+source = "both"
+
+[[param]]
+id = "fx.pitch_feedback.r_feedback"
+scope = "fx"
+label = "Right feedback"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x08
+fx_param = 7
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.delay_mono_l.time"
+scope = "fx"
+label = "Delay time"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0A
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 670
+units = "ms"
+source = "both"
+notes = "FX1/FX2 module 3."
+
+[[param]]
+id = "fx.delay_mono_l.feedback"
+scope = "fx"
+label = "Feedback"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0A
+fx_param = 1
+encoding = "signed14"
+min = 0
+max = 100
+units = "%"
+source = "both"
+
+[[param]]
+id = "fx.delay_mono_l.hf_damp"
+scope = "fx"
+label = "HF damping"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0A
+fx_param = 2
+encoding = "signed14"
+min = 0
+max = 46
+source = "both"
+notes = "Stepped: 0-46 covers 100 Hz-20 kHz."
+
+[[param]]
+id = "fx.delay_mono_l.ping_pong"
+scope = "fx"
+label = "Ping pong"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0A
+fx_param = 3
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.delay_mono_l.feedback_monitor"
+scope = "fx"
+label = "Feedback monitor"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0A
+fx_param = 4
+encoding = "enum"
+list = "pre_post"
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "fx.delay_mono_lr.time"
+scope = "fx"
+label = "Delay time"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0B
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 670
+units = "ms"
+source = "both"
+notes = "FX1/FX2 module 3."
+
+[[param]]
+id = "fx.delay_mono_lr.feedback"
+scope = "fx"
+label = "Feedback"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0B
+fx_param = 1
+encoding = "signed14"
+min = 0
+max = 100
+units = "%"
+source = "both"
+
+[[param]]
+id = "fx.delay_mono_lr.hf_damp"
+scope = "fx"
+label = "HF damping"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0B
+fx_param = 2
+encoding = "signed14"
+min = 0
+max = 46
+source = "both"
+notes = "Stepped: 0-46 covers 100 Hz-20 kHz."
+
+[[param]]
+id = "fx.delay_mono_lr.ping_pong"
+scope = "fx"
+label = "Ping pong"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0B
+fx_param = 3
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.delay_mono_lr.feedback_monitor"
+scope = "fx"
+label = "Feedback monitor"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0B
+fx_param = 4
+encoding = "enum"
+list = "pre_post"
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "fx.delay_crossover.time"
+scope = "fx"
+label = "Delay time"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0C
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 670
+units = "ms"
+source = "both"
+notes = "FX1/FX2 module 3."
+
+[[param]]
+id = "fx.delay_crossover.feedback"
+scope = "fx"
+label = "Feedback"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0C
+fx_param = 1
+encoding = "signed14"
+min = 0
+max = 100
+units = "%"
+source = "both"
+
+[[param]]
+id = "fx.delay_crossover.hf_damp"
+scope = "fx"
+label = "HF damping"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0C
+fx_param = 2
+encoding = "signed14"
+min = 0
+max = 46
+source = "both"
+notes = "Stepped: 0-46 covers 100 Hz-20 kHz."
+
+[[param]]
+id = "fx.delay_crossover.ping_pong"
+scope = "fx"
+label = "Ping pong"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0C
+fx_param = 3
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.delay_crossover.feedback_monitor"
+scope = "fx"
+label = "Feedback monitor"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0C
+fx_param = 4
+encoding = "enum"
+list = "pre_post"
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "fx.delay_stereo.l_time"
+scope = "fx"
+label = "Left delay time"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0D
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 335
+units = "ms"
+source = "both"
+notes = "FX1/FX2 module 3."
+
+[[param]]
+id = "fx.delay_stereo.l_feedback"
+scope = "fx"
+label = "Left feedback"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0D
+fx_param = 1
+encoding = "signed14"
+min = 0
+max = 100
+units = "%"
+source = "both"
+
+[[param]]
+id = "fx.delay_stereo.l_hf_damp"
+scope = "fx"
+label = "Left HF damping"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0D
+fx_param = 2
+encoding = "signed14"
+min = 0
+max = 46
+source = "both"
+notes = "Stepped: 0-46 covers 100 Hz-20 kHz."
+
+[[param]]
+id = "fx.delay_stereo.r_time"
+scope = "fx"
+label = "Right delay time"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0D
+fx_param = 3
+encoding = "signed14"
+min = 0
+max = 335
+units = "ms"
+source = "both"
+
+[[param]]
+id = "fx.delay_stereo.r_feedback"
+scope = "fx"
+label = "Right feedback"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0D
+fx_param = 4
+encoding = "signed14"
+min = 0
+max = 100
+units = "%"
+source = "both"
+
+[[param]]
+id = "fx.delay_stereo.r_hf_damp"
+scope = "fx"
+label = "Right HF damping"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0D
+fx_param = 5
+encoding = "signed14"
+min = 0
+max = 46
+source = "both"
+notes = "Stepped: 0-46 covers 100 Hz-20 kHz."
+
+[[param]]
+id = "fx.delay_stereo.feedback_monitor"
+scope = "fx"
+label = "Feedback monitor"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0D
+fx_param = 6
+encoding = "enum"
+list = "pre_post"
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "fx.reverb.type"
+scope = "fx"
+label = "Reverb type"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0E
+fx_param = 0
+encoding = "enum"
+list = "reverb_type"
+min = 0
+max = 6
+source = "both"
+notes = "FX1/FX2 module 4; RV3/RV4 module 1."
+
+[[param]]
+id = "fx.reverb.predelay"
+scope = "fx"
+label = "Pre-delay"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0E
+fx_param = 1
+encoding = "signed14"
+min = 0
+max = 90
+source = "both"
+
+[[param]]
+id = "fx.reverb.decay"
+scope = "fx"
+label = "Decay"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0E
+fx_param = 2
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.reverb.diffusion"
+scope = "fx"
+label = "Diffusion"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0E
+fx_param = 3
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.reverb.near"
+scope = "fx"
+label = "Near"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0E
+fx_param = 4
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.reverb.level"
+scope = "fx"
+label = "Level"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0E
+fx_param = 5
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.reverb.pan"
+scope = "fx"
+label = "Pan"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0E
+fx_param = 6
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+notes = "-50 = L50, +50 = R50."
+
+[[param]]
+id = "fx.reverb.lf_damp"
+scope = "fx"
+label = "LF damping"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0E
+fx_param = 7
+encoding = "signed14"
+min = 0
+max = 40
+source = "both"
+notes = "Stepped: 0-40 covers 10 Hz-1 kHz."
+
+[[param]]
+id = "fx.reverb.hf_damp"
+scope = "fx"
+label = "HF damping"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0E
+fx_param = 8
+encoding = "signed14"
+min = 0
+max = 25
+source = "both"
+notes = "Stepped: 0-25 covers 1-20 kHz."
+
+[[param]]
+id = "fx.output_mix.moddelay_level"
+scope = "fx"
+label = "Mod/delay level"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0F
+fx_param = 0
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+notes = "FX1/FX2 module 5. Parameter order taken from the screen in the docs and matches the spec."
+
+[[param]]
+id = "fx.output_mix.moddelay_pan"
+scope = "fx"
+label = "Mod/delay pan"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0F
+fx_param = 1
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.output_mix.moddelay_width"
+scope = "fx"
+label = "Mod/delay width"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0F
+fx_param = 2
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.output_mix.direct"
+scope = "fx"
+label = "Direct signal"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0F
+fx_param = 3
+encoding = "bool"
+min = 0
+max = 1
+source = "both"
+
+[[param]]
+id = "fx.output_mix.path"
+scope = "fx"
+label = "Path"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0F
+fx_param = 4
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.output_mix.disteq_level"
+scope = "fx"
+label = "Dist/EQ level"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0F
+fx_param = 5
+encoding = "signed14"
+min = 0
+max = 100
+source = "both"
+
+[[param]]
+id = "fx.output_mix.disteq_pan"
+scope = "fx"
+label = "Dist/EQ pan"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x0F
+fx_param = 6
+encoding = "signed14"
+min = -50
+max = 50
+source = "both"
+
+[[param]]
+id = "fx.reverb_input.source"
+scope = "fx"
+label = "Reverb input"
+section = 0x12
+set_item = 0x50
+get_item = 0x51
+index = [{ name = "channel", min = 0, max = 3 }, { name = "module", min = 0, max = 5 }]
+fx_module_type = 0x10
+fx_param = 0
+encoding = "enum"
+list = "reverb_input"
+min = 0
+max = 4
+source = "both"
+notes = "RV3/RV4 module 0. FX reverb = FX1 for RV3, FX2 for RV4."

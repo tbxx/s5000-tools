@@ -269,6 +269,46 @@ pub struct Program {
 }
 
 impl Program {
+    /// A new program in the current file version: `keygroups` keygroups
+    /// spanning the whole keyboard, no samples assigned, neutral settings.
+    pub fn blank(keygroups: usize) -> Self {
+        let mut out = [0u8; 8];
+        out[1] = 85; // loudness
+        out[7] = 25; // velocity sensitivity
+        let mut tune = [0u8; 24];
+        tune[15] = 2; // bend up
+        tune[16] = 2; // bend down
+        let mut lfo = [0u8; 14];
+        lfo[2] = 50; // rate
+        let mut items = vec![
+            Item::Chunk(Chunk::new(b"prg ", vec![1, 0, 0, 0, 0, 0])),
+            Item::Chunk(Chunk::new(b"out ", out.to_vec())),
+            Item::Chunk(Chunk::new(b"tune", tune.to_vec())),
+            Item::Chunk(Chunk::new(b"lfo ", lfo.to_vec())),
+            Item::Chunk(Chunk::new(b"lfo ", lfo.to_vec())),
+            Item::Chunk(Chunk::new(b"mods", vec![0; 38])),
+        ];
+        for _ in 0..keygroups.max(1) {
+            let mut kloc = vec![0u8; 16];
+            kloc[4] = 21;
+            kloc[5] = 127;
+            let mut amp = vec![0u8; 18];
+            amp[7] = 100; // sustain
+            amp[4] = 30; // release
+            let mut chunks = vec![Chunk::new(b"kloc", kloc), Chunk::new(b"env ", amp)];
+            chunks.push(Chunk::new(b"env ", vec![0; 18]));
+            chunks.push(Chunk::new(b"env ", vec![0; 18]));
+            let mut filt = vec![0u8; 10];
+            filt[2] = 100; // cutoff fully open
+            chunks.push(Chunk::new(b"filt", filt));
+            for _ in 0..4 {
+                chunks.push(Chunk::new(b"zone", vec![0; 48]));
+            }
+            items.push(Item::Keygroup(Keygroup { chunks }));
+        }
+        Self { size_field: 0, items }
+    }
+
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
         let riff = riff::parse(bytes, Flavor::Akai)?;
         if &riff.form != b"APRG" {

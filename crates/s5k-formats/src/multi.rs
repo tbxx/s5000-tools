@@ -26,6 +26,32 @@ pub struct Multi {
 }
 
 impl Multi {
+    /// A new multi in the current file version with `parts` empty parts on
+    /// MIDI channels 1A, 2A, … and no effects settings.
+    pub fn blank(parts: usize) -> Self {
+        let mut chunks = vec![
+            crate::riff::Chunk::new(b"fx  ", vec![0; 530]),
+            crate::riff::Chunk::new(b"mver", vec![1, 0x20, 0, 0]),
+        ];
+        for part in 0..parts {
+            let mut p = vec![0u8; 48];
+            p[34] = (part % 32) as u8; // MIDI channel
+            p[36] = 21; // low key
+            p[37] = 127; // high key
+            p[38] = 100; // level
+            p[44] = 1; // output
+            chunks.push(crate::riff::Chunk::new(b"part", p));
+        }
+        Self {
+            riff: Riff {
+                form: *b"AMUL",
+                size_field: 0,
+                flavor: Flavor::Akai,
+                chunks,
+            },
+        }
+    }
+
     pub fn parse(bytes: &[u8]) -> Result<Self, Error> {
         let riff = riff::parse(bytes, Flavor::Akai)?;
         if &riff.form != b"AMUL" {

@@ -205,3 +205,19 @@ fn wav_round_trips() {
     let bytes = wav_bytes(10);
     assert_eq!(Wav::parse(&bytes).unwrap().to_bytes(), bytes);
 }
+
+#[test]
+fn blank_items_parse_back() {
+    let p = Program::blank(3);
+    let reread = Program::parse(&p.to_bytes()).unwrap();
+    assert_eq!(reread.keygroups().count(), 3);
+    assert_eq!(reread.get(Section::Out, "loudness"), Some(85));
+    assert_eq!(reread.get(Section::Lfo2, "clock_division"), Some(0));
+    assert!(reread.sample_names().is_empty());
+
+    let m = Multi::blank(64);
+    let reread = Multi::parse(&m.to_bytes()).unwrap();
+    assert_eq!(reread.part_count(), 64);
+    assert_eq!(reread.part_get(33, "midi_channel"), Some(1));
+    assert_eq!(reread.part_program(0), None);
+}

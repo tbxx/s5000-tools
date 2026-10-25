@@ -1,0 +1,9 @@
+[package]
+name = "s5k-protocol"
+version = "0.1.0"
+description = "Akai S5000/S6000 USB protocol: message framing, encodings and transfer state machines (no I/O)"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]

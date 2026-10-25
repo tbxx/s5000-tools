@@ -4,9 +4,17 @@ Open tools for the **Akai S5000/S6000** sampler over USB: transfer samples,
 programs and multis, edit them, view the front panel and meters. They
 replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
 
-**Status:** the USB protocol and file formats are documented.
-`crates/s5k-formats` reads and writes `.akp`, `.akm` and `.wav` files. The USB
-tools are being built.
+**Status:** working on real hardware (macOS, S5000 OS 2.14): listing memory and
+sending, getting and deleting items. The editor app is in progress.
+
+| Crate | Purpose |
+|---|---|
+| `s5k-formats` | read and write `.akp`, `.akm`, `.wav` |
+| `s5k-protocol` | message framing, encodings, transfers (no I/O) |
+| `s5k-usb` | USB transport (nusb) |
+| `s5k` | client library: memory, transfers, disks, panel, meters |
+| `s5k-cli` | the `s5k` command |
+| `spec/` | parameter catalog generated into the tools |
 
 - [docs/protocol.md](docs/protocol.md): the USB protocol
 - [docs/file-formats.md](docs/file-formats.md): `.akp`, `.akm` and `.wav` layouts
@@ -43,9 +51,12 @@ An S5000/S6000 with OS 2.x and the USB interface board.
 
 ## Credits
 
-The file-transfer framing was first documented by
-[aksy](https://github.com/watzo/aksy) (Walco van Loon). Everything else was
-worked out from captures of ak.Sys traffic.
+The SysEx command set is defined in Akai's **S5000/S6000 MIDI System
+Exclusive Protocol Specification, version 2.10**, which is cited here, not
+reproduced. The file-transfer framing was first documented by
+[aksy](https://github.com/watzo/aksy) (Walco van Loon). The USB layer,
+transfers, screen and meters were worked out from captures of ak.Sys
+traffic.
 
 Akai, S5000, S6000 and ak.Sys are trademarks of their owners. This project is
 not affiliated with or endorsed by Akai Professional.

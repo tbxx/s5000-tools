@@ -4,11 +4,18 @@ This is how the Akai **ak.Sys** editor talks to an S5000/S6000 over the
 IB-S56USB interface (sampler OS 2.x). It was worked out by capturing ak.Sys
 traffic with USBPcap and checking the results against files saved by the
 sampler. aksy (see [Credits](../README.md#credits)) documents the transfer
-framing; everything else here comes from captures.
+framing.
 
-Notation: bytes are hexadecimal. `hi lo` is a 16-bit big-endian value.
-`<...>` is a field. "Index" is an item's position in sampler memory, starting
-at 0.
+The SysEx command set is defined in Akai's **S5000/S6000 MIDI System
+Exclusive Protocol Specification, version 2.10** (cited below as "the spec",
+with table numbers). It is not reproduced here. Where this document and the
+spec cover the same ground they agree, except where noted. The spec does not
+cover the USB layer, file transfers, the screen image or the meters; those
+come from captures.
+
+Notation: bytes are hexadecimal. `<...>` is a field. "Index" is an item's
+position in sampler memory, starting at 0, sent as a 14-bit value
+(`hi lo`, 7 bits each).
 
 Contents:
 
@@ -24,7 +31,8 @@ Contents:
 10. [Effects](#10-effects)
 11. [Front panel](#11-front-panel)
 12. [Level meters](#12-level-meters)
-13. [Open questions](#13-open-questions)
+13. [Disk tools](#13-disk-tools)
+14. [Open questions](#14-open-questions)
 
 ---
 
@@ -83,19 +91,24 @@ Replies carry **no** checksum.
 
 The 4-byte reply `41 6B 61 49` ("AkaI") means **busy**: read again.
 
-Error codes seen or documented (S5000 numbering):
+Error codes (spec table 3), with code = `hi` × 128 + `lo`:
 
 | Code | Meaning | Code | Meaning |
 |---|---|---|---|
-| `00` | section/item not supported | `101` | disk: selected disk invalid |
-| `01` | invalid message format | `102` | disk: error during load |
-| `02` | parameter out of range | `103` | disk: item not found |
-| `03` | unknown error | `104` | disk: unable to create |
-| `04` | item not found | `105` | disk: folder not empty |
-| `05` | new item could not be created | `106` | disk: unable to delete |
-| `06` | item could not be deleted | `109` | disk: insufficient space |
-| `81` | checksum invalid | `10B` | disk: write-protected |
-| `181` | keygroup does not exist | `10E` | disk: operation aborted |
+| `00` | not supported | `106` | disk: unable to delete |
+| `01` | invalid message format | `107` | disk: unknown error |
+| `02` | parameter out of range | `108` | disk: error during save |
+| `03` | unknown error | `109` | disk: insufficient space |
+| `04` | item not found | `10A` | disk: write-protected |
+| `05` | new item could not be created | `10B` | disk: name not unique |
+| `06` | item could not be deleted | `10C` | disk: invalid disk handle |
+| `81` | checksum invalid | `10D` | disk: disk is empty |
+| `101` | disk: selected disk invalid | `10E` | disk: operation aborted |
+| `102` | disk: error during load | `10F` | disk: failed on open |
+| `103` | disk: item not found | `110` | disk: read error |
+| `104` | disk: unable to create | `111` | disk: not ready |
+| `105` | disk: folder not empty | `112` | disk: SCSI error |
+| | | `181` | keygroup does not exist |
 
 ## 3. Session start-up and polling
 
@@ -138,11 +151,15 @@ Several encodings are in use; each parameter table states which one applies.
 | byte | 1 | 0–127 |
 | signed | 2 | sign (`00` = +, `01` = −), then magnitude 0–127 |
 | offset | 1 | value + constant, e.g. pan + 64; constants are given per parameter |
-| 14-bit | 2 | `hi lo`, 7 bits each: (hi << 7) \| lo |
+| 14-bit | 2 | `hi lo`, 7 bits each: (hi << 7) \| lo ("compound word") |
 | signed 14-bit | 3 | sign, hi, lo |
-| 28-bit | 4 | four 7-bit groups, most significant first |
-| index | 2 | `hi lo`, raw 8-bit bytes (used for memory indexes) |
+| 28-bit | 4 | four 7-bit groups, most significant first ("compound double word") |
+| 56-bit | 8 | eight 7-bit groups, most significant first ("compound quad word") |
 | string | n | ASCII, terminated by `00` |
+
+All SysEx data bytes are 7-bit. Memory indexes are 14-bit. The raw transfer
+commands (§6) also carry 2-byte indexes. With fewer than 128 items both
+readings agree; with more, the encoding needs checking against the sampler.
 
 ## 5. System and memory commands
 
@@ -230,12 +247,15 @@ To get a multi with everything it uses, ak.Sys reads each part's program name
 ### Disk transfers
 
 `41 <file name> 00` (get from disk) and `40 <size> <file name> 00` (send to
-disk) act on the current disk folder. Not verified: no disk was available.
+disk) act on the current disk folder; see [§13](#13-disk-tools). Not verified
+on hardware.
 
 ## 7. Program parameters
 
-Programs, keygroups and zones are addressed by program index. There are two
-command forms:
+Programs, keygroups and zones are addressed by program index. The item
+numbers are those of the spec's Program (table 13), Keygroup (table 11) and
+Keygroup Zone (table 9) sections; the spec calls these addressed forms
+"alternative operations" (table 32). There are two command forms:
 
 **Single parameter** (one value per message, used for edits):
 
@@ -454,8 +474,10 @@ current multi and are saved in its `.akm`.
 | `47` | Load | `6B` | Ent/Play |
 | | | `6C`–`6E` | User 1–3 |
 
-Codes `60`–`63` and `66` were not seen; they are probably the remaining cursor
-or numeric keys.
+From the spec (table 31): number keys 0–9 are `58`–`61`, `−` is `62` and `+`
+is `63`. `20 04 <ASCII>` types a character, as from a computer keyboard.
+Panel commands are queued: "done" means queued, not processed. Every press
+must eventually be followed by a release.
 
 ## 12. Level meters
 
@@ -472,11 +494,75 @@ Each level is attenuation in dB below full scale: `60` (96) is silence and
 smaller is louder. The meters follow internal routing, so outputs without
 physical sockets still show signal when something is routed to them.
 
-## 13. Open questions
+## 13. Disk tools
 
-- Disk browsing, loading and saving (section `10`, transfers `40`/`41`): not
-  captured.
+From the spec (tables 20 and 21); not yet tested on hardware. Section `10`.
+All operations act on the **selected disk**, which is separate from the disk
+selected on the front panel. Disks are identified by a 14-bit handle. Refresh
+the disk list (`10 01`) after any disk is added or removed, then select a disk
+before anything else.
+
+### Disks
+
+| Command | Action / reply |
+|---|---|
+| `10 01` | refresh the list of connected disks |
+| `10 02 <handle>` | select a disk |
+| `10 03 <handle>` | check a disk is valid (done or error) |
+| `10 04` | number of disks |
+| `10 05` | all disks: for each, handle (14-bit), type, format, SCSI ID, writable (0/1), name |
+| `10 06` | type of the selected disk: 0 floppy, 1 hard disk, 2 CD-ROM, 3 removable |
+| `10 07 <handle>` | type of a given disk |
+| `10 08` | handle of the selected disk |
+| `10 09` | current folder path (a single `00` at the root) |
+| `10 0A` | format: 0 other, 1 MS-DOS, 2 FAT32, 3 ISO9660, 4 S1000, 5 S3000, 6 EMU, 7 Roland |
+| `10 0B` | free space in bytes (56-bit) |
+| `10 0D <handle> <0/1>` | eject; 0 = fail if in use, 1 = discard virtual samples |
+| `10 0E <handle>` | name of a disk |
+
+### Folders
+
+| Command | Action / reply |
+|---|---|
+| `10 10` | number of sub-folders in the current folder (14-bit) |
+| `10 11 <index>` | name of a sub-folder |
+| `10 12` | names of all sub-folders, one string after another |
+| `10 13 <name>` | open a sub-folder; an empty name (`00`) goes to the root |
+| `10 14` | go up one level (error at the root) |
+| `10 15 <name>` | load a folder and everything in it, including sub-folders |
+| `10 16 <name>` | create a sub-folder |
+| `10 17 <name>` | delete a sub-folder |
+| `10 18 <name> <new name>` | rename a sub-folder |
+
+### Files
+
+| Command | Action / reply |
+|---|---|
+| `10 20` | number of files in the current folder (14-bit) |
+| `10 21 <index>` | name of a file |
+| `10 22` | names of all files, one string after another |
+| `10 23 <index>` | size of a file in bytes (28-bit) |
+| `10 24 <name>` | index of the file with this name |
+| `10 28 <name> <new name>` | rename a file; the new name has no extension |
+| `10 29 <name>` | delete a file |
+| `10 2A <name> <mode>` | load a file (name with extension); mode 0 normal, 1 samples into RAM, 2 samples as virtual |
+| `10 2B <name>` | load a file with everything it uses (a program's samples, a multi's programs) |
+| `10 2C <index> <type> <overwrite> <children>` | save a memory item to disk; type 1 multi, 2 program, 3 sample, 4 MIDI file, 5 setlist, 6 scenelist; overwrite 0/1; children 0/1 |
+| `10 2D <type> <overwrite> <children>` | save every memory item of a type |
+| `10 30 <index>` | audition a sample file from disk |
+| `10 31` | stop auditioning |
+
+Indexes of files and folders change whenever the disk changes, so refer to
+items by name where possible. Plain "load" does not load dependencies; use
+`10 2B` for that.
+
+## 14. Open questions
+
+- Disk tools: commands come from the spec, not yet tested on hardware; disk
+  transfers `40`/`41` are untested.
+- 2-byte index encoding in the raw transfer commands for indexes ≥ 128.
 - The 128-byte block after a `01 00 00 00` keep-alive reply.
-- `02 01`, `02 04`, `02 20`, `02 21` status values.
-- Sample parameter set commands (`2E` items): ak.Sys does not use them.
-- Front-panel key codes `60`–`63`, `66`, and any keys not listed.
+- `02 01`, `02 04`, `02 20`, `02 21` status values (see the spec's System
+  Setup tables 6–7).
+- Sample parameter set commands (`2E` items, spec table 18): ak.Sys does not
+  use them, so they are untested.

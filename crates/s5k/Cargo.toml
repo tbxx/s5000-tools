@@ -1,0 +1,11 @@
+[package]
+name = "s5k"
+version = "0.1.0"
+description = "Control an Akai S5000/S6000 sampler: memory, transfers, editing, disks, front panel and meters"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+s5k-formats = { path = "../s5k-formats" }
+s5k-protocol = { path = "../s5k-protocol" }
