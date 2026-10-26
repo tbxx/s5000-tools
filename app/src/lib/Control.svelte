@@ -1,10 +1,12 @@
 <script lang="ts">
   // One parameter: a knob for numbers, an LCD box (or menu) for value lists, a
   // switch for on/off. Editable when `onchange` is given: drag the knob up or
-  // down, double-click to type a value.
+  // down, double-click to type a value. The knob's arc is in the panel's route
+  // colour (--route).
   import type { ParamInfo } from "./api";
   import { dialogs } from "./dialogs.svelte";
   import { format } from "./format";
+  import { throttled } from "./throttle";
 
   let {
     info,
@@ -40,25 +42,13 @@
   }
   const zero = $derived(min < 0 && max > 0 ? 0 : min);
 
-  // Dragging: one full range per 160 px; writes are throttled to 20 a second.
+  // Dragging: one full range per 160 px; writes go through the throttled
+  // live-write path (20 a second, final value on release).
   let local = $state<number | null>(null);
   const shown = $derived(local ?? value);
   let startY = 0;
   let startV = 0;
-  let lastSent = 0;
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
-  function send(v: number, force = false) {
-    if (!onchange) return;
-    const now = performance.now();
-    if (timer) clearTimeout(timer);
-    if (force || now - lastSent >= 50) {
-      lastSent = now;
-      onchange(v);
-    } else {
-      timer = setTimeout(() => send(v, true), 50 - (now - lastSent));
-    }
-  }
+  const live = throttled((v) => onchange?.(v));
 
   function down(e: PointerEvent) {
     if (!editable || value === undefined) return;
@@ -75,13 +65,13 @@
     const next = Math.min(max, Math.max(min, v));
     if (next !== local) {
       local = next;
-      send(next);
+      live.push(next);
     }
   }
 
   function up() {
     if (local === null) return;
-    if (local !== value) send(local, true);
+    if (local !== startV) live.done(local);
     local = null;
   }
 
@@ -89,7 +79,7 @@
     if (!editable) return;
     const r = await dialogs.ask(info.label, [{ label: `${min} to ${max}`, value: String(value ?? "") }], "Set");
     const v = r ? parseInt(r[0]) : NaN;
-    if (!Number.isNaN(v)) send(Math.min(max, Math.max(min, v)), true);
+    if (!Number.isNaN(v)) onchange?.(Math.min(max, Math.max(min, v)));
   }
 </script>
 
@@ -114,17 +104,14 @@
       <path d={arc(-SWEEP / 2, SWEEP / 2)} class="track" />
       {#if shown !== undefined}
         <path d={arc(angle(zero), angle(shown))} class="value" />
-      {/if}
-      <circle r="10.5" class="cap" />
-      {#if shown !== undefined}
-        <line x1="0" y1="-3" x2="0" y2="-10" transform="rotate({angle(shown)})" class="pointer" />
+        <line x1="0" y1="-4" x2="0" y2="-12" transform="rotate({angle(shown)})" class="pointer" />
       {/if}
     </svg>
     <span class="range"><span>{min}</span><span>{max}</span></span>
     <span class="lcd readout">{shown === undefined ? "—" : format(info, shown)}</span>
   {:else if kind === "enum"}
     {#if editable && known}
-      <select class="lcd menu" value={value} onchange={(e) => send(parseInt(e.currentTarget.value), true)}>
+      <select class="lcd menu" value={value} onchange={(e) => onchange?.(parseInt(e.currentTarget.value))}>
         {#each info.options ?? [] as o, i}<option value={i}>{o}</option>{/each}
       </select>
     {:else}
@@ -135,7 +122,7 @@
       class="switch"
       class:on={value === 1}
       disabled={!editable || !known}
-      onclick={() => send(value === 1 ? 0 : 1, true)}
+      onclick={() => onchange?.(value === 1 ? 0 : 1)}
       aria-pressed={value === 1}
     >
       {value === undefined ? "—" : value ? "ON" : "OFF"}
@@ -156,19 +143,19 @@
     min-width: 62px;
   }
   .unknown {
-    opacity: 0.5;
+    opacity: 0.45;
   }
   .label {
-    font-size: 9px;
+    font-size: 9.5px;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.01em;
     text-align: center;
     max-width: 100%;
     line-height: 1.1;
     min-height: 2.2em;
     display: flex;
     align-items: flex-end;
+    justify-content: center;
   }
   svg {
     width: 38px;
@@ -180,36 +167,32 @@
   }
   .track {
     fill: none;
-    stroke: var(--track);
-    stroke-width: 3;
+    stroke: var(--rule-soft);
+    stroke-width: 1;
   }
   .value {
     fill: none;
-    stroke: var(--accent);
-    stroke-width: 3;
-  }
-  .cap {
-    fill: var(--knob);
+    stroke: var(--route);
+    stroke-width: 3.5;
   }
   .pointer {
-    stroke: var(--panel);
-    stroke-width: 2.2;
-    stroke-linecap: round;
+    stroke: var(--text);
+    stroke-width: 1.5;
   }
   .range {
     display: flex;
     justify-content: space-between;
     gap: 3px;
-    width: 58px;
+    width: 56px;
     font-size: 7.5px;
-    letter-spacing: -0.02em;
     color: var(--muted);
-    margin-top: -4px;
+    margin-top: -5px;
   }
   .readout {
     font-size: 10px;
-    min-width: 40px;
+    min-width: 42px;
     text-align: center;
+    border-color: var(--rule);
   }
   .wide {
     min-width: 60px;
@@ -221,16 +204,17 @@
     font-size: 10px;
     padding: 0 2px;
     max-width: 120px;
+    border-color: var(--rule);
   }
   .switch {
     font-size: 10px;
-    padding: 2px 8px;
+    padding: 1px 8px;
     min-width: 42px;
   }
   .switch.on {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-text);
+    background: var(--route);
+    border-color: var(--route);
+    color: #fff;
   }
   .switch:disabled {
     opacity: 1;

@@ -1,55 +1,123 @@
+/* s5000-tools: NYC Transit (Vignelli) style. Tokens and shared components;
+   see app/STYLE.md. Square corners, hairline rules, black signage bars,
+   colour only for meaning. */
+
 :root {
-  color-scheme: light dark;
-  --bg: #e6e3dc;
-  --panel: #f4f2ee;
-  --panel-2: #ebe8e1;
-  --line: #c6c1b6;
-  --text: #1f2023;
-  --muted: #6c6a64;
-  --accent: #c8521f;
-  --accent-text: #fff;
-  --select: #2d5c8c;
-  --select-text: #fff;
-  --select-soft: #d5e1ee;
-  --ok: #2f8a4a;
-  --bad: #b3261e;
-  --title-bg: #3b4048;
-  --title-text: #f1efe9;
-  --lcd-bg: #c4d0bd;
-  --lcd-fg: #17231c;
-  --lcd-edge: #8e9a88;
-  --key: #d9d5cc;
-  --key-edge: #a7a196;
-  --knob: #3b4048;
-  --bezel: #3b4048;
-  --track: #cfcac0;
+  color-scheme: light;
+
+  /* Type */
+  --font: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
-  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+
+  /* Route colours (MTA). Bullets, active state, meters, LEDs only. */
+  --mta-red: #ee352e;
+  --mta-green: #00933c;
+  --mta-blue: #0039a6;
+  --mta-orange: #ff6319;
+  --mta-yellow: #fccc0a;
+  --mta-purple: #b933ad;
+  --mta-lime: #6cbe45;
+  --mta-grey: #a7a9ac;
+  --mta-brown: #996633;
+
+  /* Surfaces and rules */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f2f2f2; /* hover, wells, empty tracks */
+  --rule: #000000; /* strong hairline: buttons, under headings */
+  --rule-soft: #d6d6d6; /* separators inside a panel */
+  --text: #000000;
+  --muted: #6d6e71;
+
+  /* Signage bar */
+  --sign-bg: #000000;
+  --sign-text: #ffffff;
+  --sign-muted: #a7a9ac;
+  --sign-rule: #ffffff;
+
+  /* Meaning */
+  --accent: var(--mta-blue);
+  --accent-text: #ffffff;
+  --select: var(--mta-blue);
+  --select-text: #ffffff;
+  --select-soft: #dfe6f3;
+  --ok: var(--mta-green);
+  --bad: var(--mta-red);
+  --warn: var(--mta-yellow);
+  --led: var(--mta-red);
+  --route: var(--accent); /* set per panel; knobs and graphs use it */
+
+  /* The sampler's LCD */
+  --lcd-bg: #f4f4ef;
+  --lcd-fg: #111111;
+  --lcd-edge: #000000;
+
+  /* Fields */
+  --field-bg: #ffffff;
+  --field-rule: #8a8a8a;
+
+  /* Older names, kept for views not yet restyled (Transfers). */
+  --panel: var(--surface);
+  --panel-2: var(--surface-2);
+  --line: var(--rule-soft);
+  --title-bg: var(--sign-bg);
+  --title-text: var(--sign-text);
+  --key: var(--surface);
+  --key-edge: var(--rule);
+  --knob: var(--text);
+  --bezel: var(--sign-bg);
+  --track: var(--rule-soft);
+
+  font: 13px/1.35 var(--font);
+  font-feature-settings: "tnum";
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #17191c;
-    --panel: #22252a;
-    --panel-2: #1c1f23;
-    --line: #373b42;
-    --text: #e7e5e0;
-    --muted: #9a978f;
-    --accent: #ee7a3c;
-    --select: #3d74ad;
-    --select-soft: #26384b;
-    --ok: #4cbc6c;
-    --bad: #f0645a;
-    --title-bg: #33373e;
-    --lcd-bg: #1b2a22;
-    --lcd-fg: #a6e3b6;
-    --lcd-edge: #2f4237;
-    --key: #33373e;
-    --key-edge: #4a4f57;
-    --knob: #d6d3cc;
-    --bezel: #0d0f11;
-    --track: #3a3e45;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #000000;
+    --surface: #000000;
+    --surface-2: #161616;
+    --rule: #ffffff;
+    --rule-soft: #333333;
+    --text: #ffffff;
+    --muted: #a7a9ac;
+    --sign-bg: #1d1d1d;
+    --sign-text: #ffffff;
+    --sign-muted: #a7a9ac;
+    --sign-rule: #ffffff;
+    --accent: #2f6fde;
+    --select: #2f6fde;
+    --select-soft: #0e2350;
+    --lcd-bg: #0c0c0c;
+    --lcd-fg: #e9e9e4;
+    --lcd-edge: #555555;
+    --field-bg: #000000;
+    --field-rule: #6d6e71;
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --surface: #000000;
+  --surface-2: #161616;
+  --rule: #ffffff;
+  --rule-soft: #333333;
+  --text: #ffffff;
+  --muted: #a7a9ac;
+  --sign-bg: #1d1d1d;
+  --sign-text: #ffffff;
+  --sign-muted: #a7a9ac;
+  --sign-rule: #ffffff;
+  --accent: #2f6fde;
+  --select: #2f6fde;
+  --select-soft: #0e2350;
+  --lcd-bg: #0c0c0c;
+  --lcd-fg: #e9e9e4;
+  --lcd-edge: #555555;
+  --field-bg: #000000;
+  --field-rule: #6d6e71;
 }
 
 * {
@@ -65,44 +133,66 @@ body {
   overflow: hidden;
   -webkit-user-select: none;
   user-select: none;
+  -webkit-font-smoothing: antialiased;
 }
 
 #app {
   height: 100%;
 }
 
+/* Button: square, hairline, bold. Primary is a black sign; pressed inverts. */
 button {
   font: inherit;
+  font-weight: 700;
   color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 0;
   padding: 3px 10px;
   cursor: default;
 }
 button:hover:not(:disabled) {
-  border-color: var(--muted);
+  background: var(--surface-2);
 }
 button:active:not(:disabled) {
-  background: var(--panel-2);
+  background: var(--text);
+  color: var(--bg);
 }
 button:disabled {
-  opacity: 0.45;
+  opacity: 0.35;
 }
 button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+button.primary:hover:not(:disabled) {
+  background: var(--text);
+  opacity: 0.85;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
+/* Field */
 input,
 select {
   font: inherit;
   color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 4px;
+  background: var(--field-bg);
+  border: 1px solid var(--field-rule);
+  border-radius: 0;
   padding: 3px 6px;
+}
+input:focus,
+select:focus {
+  border-color: var(--rule);
+}
+input[type="checkbox"] {
+  accent-color: var(--text);
 }
 
 label {
@@ -111,27 +201,78 @@ label {
   gap: 5px;
 }
 
-/* A labelled panel, as on the hardware editor screens. */
-.title {
-  display: inline-block;
-  background: var(--title-bg);
-  color: var(--title-text);
-  font-size: 10px;
+/* Signage bar: a full-width black heading. */
+.sign {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--sign-bg);
+  color: var(--sign-text);
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 1px 8px;
-  border-radius: 3px;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  padding: 3px 8px;
+  min-height: 22px;
 }
 
+/* Inline sign label (a short sign inside a row). */
+.title {
+  display: inline-block;
+  background: var(--sign-bg);
+  color: var(--sign-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 1px 7px;
+}
+
+/* Route bullet: a filled circle with a white letter or number. */
+.bullet {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--c, var(--mta-grey));
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.bullet.red { --c: var(--mta-red); }
+.bullet.green { --c: var(--mta-green); }
+.bullet.blue { --c: var(--mta-blue); }
+.bullet.orange { --c: var(--mta-orange); }
+.bullet.yellow { --c: var(--mta-yellow); color: #000; }
+.bullet.purple { --c: var(--mta-purple); }
+.bullet.lime { --c: var(--mta-lime); }
+.bullet.grey { --c: var(--mta-grey); }
+.bullet.brown { --c: var(--mta-brown); }
+.bullet.small {
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+}
+
+/* Hairline rule */
+.rule {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: 0;
+}
+.rule.soft {
+  border-top-color: var(--rule-soft);
+}
+
+/* Readout: a square value box. */
 .lcd {
-  font-family: var(--mono);
-  background: var(--lcd-bg);
-  color: var(--lcd-fg);
-  border: 1px solid var(--lcd-edge);
-  border-radius: 2px;
+  background: var(--field-bg);
+  color: var(--text);
+  border: 1px solid var(--rule-soft);
   padding: 1px 5px;
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 

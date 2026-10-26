@@ -16,8 +16,11 @@
   /** A parameter ("id" or "id#n"), or a mod source with its amount. */
   type Cell = string | { src: string; amt: string; label: string };
   const mod = (src: string, amt: string, label: string): Cell => ({ src, amt, label });
+  /** Route colours by function: pitch blue, amp red, filter green, LFO purple, aux orange. */
+  type Route = "blue" | "red" | "green" | "purple" | "orange" | "brown" | "lime" | "grey";
   interface Panel {
     title: string;
+    route: Route;
     cells: Cell[];
     env?: "amp" | "filter" | "aux";
   }
@@ -34,12 +37,12 @@
 
   const programPanels: Panel[] = [
     {
-      title: "Program tune",
+      title: "Program tune", route: "blue",
       cells: ["program.semitone", "program.fine", "program.portamento", "program.portamento_time", "program.portamento_mode", "program.legato"],
     },
-    { title: "Pitchbend", cells: ["program.bend_up", "program.bend_down", "program.bend_mode", "program.aftertouch_pitch"] },
+    { title: "Pitchbend", route: "blue", cells: ["program.bend_up", "program.bend_down", "program.bend_mode", "program.aftertouch_pitch"] },
     {
-      title: "Output level",
+      title: "Output level", route: "red",
       cells: [
         "program.loudness",
         "program.velocity_sensitivity",
@@ -48,12 +51,12 @@
       ],
     },
     {
-      title: "Pan mod",
+      title: "Pan mod", route: "red",
       cells: [1, 2, 3].map((n) => mod(`program.pan_mod_source#${n}`, `program.pan_mod_amount#${n}`, `Pan mod ${n}`)),
     },
-    { title: "Tuning", cells: ["program.tune_template", "program.tune_key", "program.keygroup_crossfade"] },
-    { title: "LFO 1", cells: [...lfo(1), "program.lfo1_key_sync#1", "program.lfo1_wheel#1", "program.lfo1_aftertouch#1"] },
-    { title: "LFO 2", cells: [...lfo(2), "program.lfo2_retrigger#2", "program.lfo2_clock_sync#2", "program.lfo2_clock_division#2"] },
+    { title: "Tuning", route: "brown", cells: ["program.tune_template", "program.tune_key", "program.keygroup_crossfade"] },
+    { title: "LFO 1", route: "purple", cells: [...lfo(1), "program.lfo1_key_sync#1", "program.lfo1_wheel#1", "program.lfo1_aftertouch#1"] },
+    { title: "LFO 2", route: "purple", cells: [...lfo(2), "program.lfo2_retrigger#2", "program.lfo2_clock_sync#2", "program.lfo2_clock_division#2"] },
   ];
 
   const envCells = (e: "amp" | "filter"): Cell[] =>
@@ -63,7 +66,7 @@
 
   const keygroupPanels: Panel[] = [
     {
-      title: "KG pitch / amp",
+      title: "KG pitch / amp", route: "blue",
       cells: [
         "keygroup.semitone",
         "keygroup.fine",
@@ -78,7 +81,7 @@
       ],
     },
     {
-      title: "Filter",
+      title: "Filter", route: "green",
       cells: [
         "keygroup.filter_type",
         "keygroup.cutoff",
@@ -90,10 +93,10 @@
         mod("program.filter_mod_source#3", "keygroup.filter_mod_amount#3", "Filter mod 3"),
       ],
     },
-    { title: "Filter env", env: "filter", cells: [...envCells("filter"), "keygroup.filter_env_depth"] },
-    { title: "Amp env", env: "amp", cells: envCells("amp") },
+    { title: "Filter env", route: "green", env: "filter", cells: [...envCells("filter"), "keygroup.filter_env_depth"] },
+    { title: "Amp env", route: "red", env: "amp", cells: envCells("amp") },
     {
-      title: "Aux env",
+      title: "Aux env", route: "orange",
       env: "aux",
       cells: [
         ...[1, 2, 3, 4].map((n) => `keygroup.aux_env_rate#${n}`),
@@ -233,22 +236,6 @@
     }
   }
 
-  function envPoints(e: "amp" | "filter" | "aux"): [number, number][] | null {
-    if (e === "aux") {
-      const r = [1, 2, 3, 4].map((n) => valueOf(`keygroup.aux_env_rate#${n}`));
-      const l = [1, 2, 3, 4].map((n) => valueOf(`keygroup.aux_env_level#${n}`));
-      if ([...r, ...l].some((v) => v === undefined)) return null;
-      const w = (v: number) => (v / 100) * 22;
-      const x1 = w(r[0]!), x2 = x1 + w(r[1]!), x3 = x2 + w(r[2]!);
-      return [[0, 0], [x1, l[0]!], [x2, l[1]!], [x3, l[2]!], [x3 + 12, l[2]!], [x3 + 12 + w(r[3]!), l[3]!]];
-    }
-    const [a, d, s, r] = ["attack", "decay", "sustain", "release"].map((f) => valueOf(`keygroup.${e}_env_${f}`));
-    if ([a, d, s, r].some((v) => v === undefined)) return null;
-    const w = (v: number) => (v / 100) * 30;
-    const x1 = w(a!), x2 = x1 + w(d!), x3 = x2 + 20;
-    return [[0, 0], [x1, 100], [x2, s!], [x3, s!], [x3 + w(r!), 0]];
-  }
-
   /** Labels without the panel's own name ("Amp env attack" in Amp env is "Attack"). */
   function shortLabel(info: ParamInfo, ref: string) {
     const n = ref.split("#")[1];
@@ -298,9 +285,11 @@
 {/snippet}
 
 {#snippet panel(p: Panel)}
-  <section class="panel">
-    <span class="title">{p.title}</span>
-    {#if p.env}<EnvGraph points={envPoints(p.env)} />{/if}
+  <section class="panel" class:env={p.env} style:--route="var(--mta-{p.route})">
+    <h3 class="sign">{p.title}</h3>
+    {#if p.env}
+      <EnvGraph kind={p.env} get={valueOf} {catalog} onchange={editable ? write : undefined} />
+    {/if}
     <div class="cells">
       {#each p.cells as c}{@render cell(c)}{/each}
     </div>
@@ -318,7 +307,7 @@
     </label>
     <button onclick={loadFile}>Open .akp file…</button>
     {#if view}
-      <span class="lcd name">{view.name}</span>
+      <span class="name">{view.name}</span>
       <span class="muted">
         {view.keygroups.length} keygroup{view.keygroups.length === 1 ? "" : "s"} ·
         {editable ? "editing the sampler's memory live" : "read-only (file)"}
@@ -376,8 +365,8 @@
 
     <div class="grid keygroup">
       {#each keygroupPanels as p}{@render panel(p)}{/each}
-      <section class="panel zone">
-        <span class="title">Zone</span>
+      <section class="panel zone" style:--route="var(--mta-lime)">
+        <h3 class="sign">Zone</h3>
         <div class="zone-tabs">
           {#each keygroup?.zones ?? [] as z, i}
             <button class:active={i === zone} class:empty-zone={!z.sample} onclick={() => (zone = i)}>{i + 1}</button>
@@ -391,8 +380,8 @@
     </div>
 
     {#if other.length}
-      <section class="panel other">
-        <span class="title">Other</span>
+      <section class="panel other" style:--route="var(--mta-grey)">
+        <h3 class="sign">Other</h3>
         <div class="cells">
           {#each other as p}
             {#if p.index}
@@ -409,49 +398,56 @@
 
 <style>
   .editor {
-    padding: 10px 12px 16px;
+    padding: 12px 16px 20px;
   }
   .bar {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 10px;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
   }
   .name {
-    font-size: 13px;
-    padding: 2px 10px;
+    font-size: 17px;
+    font-weight: 700;
+    margin-left: 6px;
   }
   .empty {
-    padding: 30px;
+    padding: 30px 0;
   }
   .grid {
     display: grid;
-    gap: 8px;
+    gap: 16px 12px;
   }
   .grid.program {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   }
   .grid.keygroup {
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   }
   .panel {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 6px 8px 8px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .panel .sign {
+    align-self: stretch;
+    margin: 0;
+    /* A route-coloured edge identifies the panel's function. */
+    border-left: 6px solid var(--route);
   }
   .panel.other {
-    margin-top: 8px;
+    margin-top: 16px;
   }
   .cells {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 6px 4px;
+    gap: 8px 4px;
   }
   .stack {
     display: flex;
@@ -461,7 +457,7 @@
   }
   .keys {
     position: relative;
-    margin: 12px 0 2px;
+    margin: 20px 0 2px;
     padding-bottom: 14px;
   }
   .keyboard {
@@ -470,21 +466,19 @@
     display: block;
   }
   .keyboard .white {
-    fill: #f7f6f2;
-    stroke: #8f8a80;
-    stroke-width: 0.06;
+    fill: #fff;
+    stroke: #000;
+    stroke-width: 0.05;
   }
   .keyboard .black {
-    fill: #2a2c30;
+    fill: #000;
   }
   .keyboard .range {
-    fill: var(--muted);
-    opacity: 0.55;
+    fill: var(--rule-soft);
     stroke: none;
   }
   .keyboard .range.current {
     fill: var(--accent);
-    opacity: 1;
   }
   .octaves span {
     position: absolute;
@@ -497,33 +491,33 @@
   .zone-tabs {
     display: flex;
     align-items: center;
-    gap: 3px;
     flex-wrap: wrap;
   }
   .tabs {
-    margin: 4px 0 8px;
+    margin: 6px 0 14px;
   }
   .tabs button,
   .zone-tabs button {
-    padding: 0 7px;
+    padding: 1px 7px;
     font-size: 11px;
-    min-width: 26px;
+    min-width: 28px;
+    margin-right: -1px;
   }
   .tabs button.active,
   .zone-tabs button.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-text);
+    background: var(--text);
+    border-color: var(--text);
+    color: var(--bg);
   }
   .empty-zone {
-    opacity: 0.55;
+    color: var(--muted);
   }
   .range-text {
-    margin-left: 8px;
+    margin-left: 12px;
     font-size: 12px;
   }
   .sample {
-    margin-left: 8px;
+    margin-left: 10px;
     min-width: 140px;
   }
 </style>

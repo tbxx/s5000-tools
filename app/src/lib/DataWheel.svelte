@@ -71,39 +71,35 @@
 >
   <circle r="48" class="rim" />
   {#each Array(36) as _, i}
-    <line
-      x1="0"
-      y1="-47"
-      x2="0"
-      y2="-42"
-      transform="rotate({i * 10 + angle})"
-      class="grip"
-    />
+    <line x1="0" y1="-47.5" x2="0" y2="-43" transform="rotate({i * 10 + angle})" class="grip" />
   {/each}
-  <circle r="40" class="face" />
-  <circle r="6" cx="0" cy="-26" transform="rotate({angle})" class="dimple" />
+  <circle r="41" class="face" />
+  <circle r="5" cx="0" cy="-28" transform="rotate({angle})" class="dimple" />
 </svg>
 
 <style>
+  /* Flat: hairline rim, fine grip ticks, a solid dimple. */
   .wheel {
-    width: 132px;
-    height: 132px;
+    width: 128px;
+    height: 128px;
     touch-action: none;
     cursor: grab;
   }
   .rim {
-    fill: var(--knob);
+    fill: var(--surface);
+    stroke: var(--rule);
+    stroke-width: 1;
   }
   .grip {
-    stroke: var(--panel);
-    stroke-width: 1.2;
-    opacity: 0.45;
+    stroke: var(--text);
+    stroke-width: 0.8;
   }
   .face {
-    fill: var(--key);
-    stroke: var(--key-edge);
+    fill: var(--surface);
+    stroke: var(--rule);
+    stroke-width: 1;
   }
   .dimple {
-    fill: var(--key-edge);
+    fill: var(--text);
   }
 </style>

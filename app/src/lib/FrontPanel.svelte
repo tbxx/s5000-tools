@@ -6,6 +6,10 @@
 
   const W = 320;
   const H = 240;
+  /** The LCD has 8 rows of 30 px; F1–F8 sit left of rows 0–7, F9–F16 right. */
+  const ROWS = 8;
+  const rows = [...Array(ROWS).keys()];
+  const SCALES = [1, 1.5, 2];
 
   // Key codes: s5k::Key.
   const modeKeys = [
@@ -19,6 +23,8 @@
     { code: 0x47, label: "Load" },
   ];
   const fn = (n: number) => ({ code: 0x47 + n, label: `F${n}` });
+  /** The soft key for row `row` on the left or right of the screen. */
+  const softKey = (row: number, right: boolean) => fn(row + 1 + (right ? ROWS : 0));
   const numKeys = [
     [7, 8, 9],
     [4, 5, 6],
@@ -54,7 +60,25 @@
   let leds = $state(0);
   let held = $state(new Set<number>());
   let live = $state(false);
+  let scale = $state(loadScale());
 
+  function loadScale() {
+    try {
+      const v = parseFloat(localStorage.getItem("panel.scale") ?? "");
+      return SCALES.includes(v) ? v : 2;
+    } catch {
+      return 2;
+    }
+  }
+
+  function setScale(v: number) {
+    scale = v;
+    try {
+      localStorage.setItem("panel.scale", String(v));
+    } catch {
+      // Not remembered; fine.
+    }
+  }
   function colour(name: string): [number, number, number] {
     const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     const n = parseInt(v.slice(1), 16);
@@ -136,72 +160,108 @@
   >
 {/snippet}
 
-<div class="panel">
-  <div class="left">
-    <div class="screen" class:off={!live}>
-      <canvas bind:this={canvas} width={W} height={H}></canvas>
-      {#if !live}<div class="overlay">{app.connected ? "Waiting for the screen…" : "Not connected"}</div>{/if}
-    </div>
-    <div class="soft">
-      {#each [1, 2, 3, 4, 5, 6, 7, 8] as n}{@render key(fn(n), "f")}{/each}
-    </div>
-    <div class="soft">
-      {#each [9, 10, 11, 12, 13, 14, 15, 16] as n}{@render key(fn(n), "f")}{/each}
-    </div>
-    <p class="hint muted">
-      Keyboard: ← → cursor, 0–9, + and −, Enter = Ent/Play, Esc = Exit. Scroll or drag the wheel.
-    </p>
+{#snippet softColumn(right: boolean)}
+  <div class="fcol" class:right>
+    {#each rows as r}{@render key(softKey(r, right), "f")}{/each}
   </div>
+{/snippet}
 
-  <div class="right">
-    <div class="group">
-      <span class="title">Mode</span>
-      <div class="modes">
-        {#each modeKeys as k, i}
-          <div class="mode">
-            <span class="led" class:lit={(leds >> i) & 1}></span>
-            {@render key(k)}
-          </div>
+<div class="panel" style:--s={scale}>
+  <div class="main">
+    <div class="display">
+      {@render softColumn(false)}
+      <div class="screen" class:off={!live}>
+        <canvas bind:this={canvas} width={W} height={H}></canvas>
+        <!-- Clicking the left half of row k presses F(k+1), the right half F(9+k). -->
+        <div class="hot" class:active={live}>
+          {#each rows as r}
+            {#each [false, true] as right}
+              {@const k = softKey(r, right)}
+              <button
+                class="zone"
+                class:down={held.has(k.code)}
+                tabindex="-1"
+                aria-label={k.label}
+                title={k.label}
+                disabled={!app.connected}
+                onpointerdown={(e) => {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  press(k.code);
+                }}
+                onpointerup={() => release(k.code)}
+                onpointercancel={() => release(k.code)}
+                onlostpointercapture={() => release(k.code)}
+              ></button>
+            {/each}
+          {/each}
+        </div>
+        {#if !live}<div class="overlay">{app.connected ? "Waiting for the screen…" : "Not connected"}</div>{/if}
+      </div>
+      {@render softColumn(true)}
+    </div>
+
+    <div class="modes">
+      {#each modeKeys as k, i}
+        <div class="mode">
+          <span class="led" class:lit={(leds >> i) & 1}></span>
+          {@render key(k)}
+        </div>
+      {/each}
+    </div>
+
+    <div class="foot">
+      <p class="hint muted">
+        Click a row of the screen to press its soft key. Keyboard: ← → cursor, 0–9, + and −, Enter = Ent/Play, Esc =
+        Exit. Scroll or drag the wheel.
+      </p>
+      <div class="scale" role="group" aria-label="Screen size">
+        {#each SCALES as v}
+          <button class:active={scale === v} onclick={() => setScale(v)}>{v}×</button>
         {/each}
       </div>
     </div>
+  </div>
 
-    <div class="group wheel-row">
-      <div class="cursor">
-        <span class="title">Cursor</span>
-        <div class="pair">{@render key(left)}{@render key(right)}</div>
-        <span class="title">Data</span>
-        <div class="pair">{@render key(minus)}{@render key(plus)}</div>
+  <div class="side">
+    <section>
+      <h3 class="sign">Cursor and data</h3>
+      <div class="wheel-row">
+        <div class="cursor">
+          <div class="pair">{@render key(left)}{@render key(right)}</div>
+          <div class="pair">{@render key(minus)}{@render key(plus)}</div>
+        </div>
+        <DataWheel onturn={(n) => app.connected && api.wheel(n).catch((e) => app.fail(e))} />
       </div>
-      <DataWheel onturn={(n) => app.connected && api.wheel(n).catch((e) => app.fail(e))} />
-    </div>
+    </section>
 
-    <div class="group pads">
+    <section class="pads">
       <div>
-        <span class="title">Numbers</span>
+        <h3 class="sign">Numbers</h3>
         <div class="numpad">
           {#each numKeys as row}{#each row as k}{@render key(k)}{/each}{/each}
           {@render key(minus)}{@render key(zero)}{@render key(plus)}
         </div>
       </div>
-      <div>
-        <span class="title">Edit</span>
+      <div class="edit-col">
+        <h3 class="sign">Edit</h3>
         <div class="edit">
           {#each editKeys as k}{@render key(k)}{/each}
           {@render key(entPlay, "ent")}
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="group">
-      <span class="title">User</span>
+    <section>
+      <h3 class="sign">User</h3>
       <div class="users">{#each userKeys as k}{@render key(k)}{/each}</div>
-    </div>
+    </section>
   </div>
 </div>
 
 <style>
   .panel {
+    --s: 2;
+    --row: calc(30px * var(--s));
     display: flex;
     gap: 24px;
     padding: 18px;
@@ -209,24 +269,43 @@
     align-items: flex-start;
     min-width: fit-content;
   }
-  .left {
-    width: 664px;
+  .main {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* The display is a sign: black, with the screen between two columns of soft keys. */
+  .display {
+    display: grid;
+    grid-template-columns: auto auto auto;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 12px;
+    background: var(--sign-bg);
+  }
+  /* Each column is exactly as tall as the screen, one cell per 30 px LCD row,
+     so a key sits centred on its row at any scale. */
+  .fcol {
+    display: grid;
+    grid-template-rows: repeat(8, var(--row));
+    align-items: center;
   }
   .screen {
     position: relative;
-    padding: 12px;
-    background: var(--bezel);
-    border-radius: 6px;
+    width: calc(320px * var(--s));
+    height: calc(240px * var(--s));
+    outline: 1px solid var(--lcd-edge);
   }
   canvas {
     display: block;
-    width: 640px;
-    height: 480px;
+    width: 100%;
+    height: 100%;
     image-rendering: pixelated;
     background: var(--lcd-bg);
   }
   .off canvas {
-    opacity: 0.5;
+    opacity: 0.4;
   }
   .overlay {
     position: absolute;
@@ -234,58 +313,125 @@
     display: grid;
     place-items: center;
     color: var(--lcd-fg);
-    font-family: var(--mono);
+    font-weight: 700;
+    pointer-events: none;
   }
-  .soft {
+  .hot {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(8, 1fr);
+  }
+  .hot .zone {
+    border: none;
+    padding: 0;
+    background: transparent;
+    touch-action: none;
+  }
+  .hot.active .zone:hover:not(:disabled) {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .hot .zone.down,
+  .hot .zone:active:not(:disabled) {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  .key {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--rule);
+    padding: 5px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    touch-action: none;
+  }
+  .key.down,
+  .key:active:not(:disabled) {
+    background: var(--text);
+    color: var(--bg);
+  }
+  .key.f {
+    width: 46px;
+    height: min(26px, calc(var(--row) - 6px));
+    padding: 0;
+    background: transparent;
+    color: var(--sign-text);
+    border-color: var(--sign-muted);
+  }
+  .key.f:hover:not(:disabled) {
+    border-color: var(--sign-text);
+  }
+  .key.f.down,
+  .key.f:active:not(:disabled) {
+    background: var(--sign-text);
+    color: var(--sign-bg);
+  }
+
+  .modes {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     gap: 8px;
-    padding: 10px 12px 0;
-  }
-  .hint {
-    font-size: 11px;
-    margin: 12px;
-  }
-  .right {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    width: 300px;
-  }
-  .group {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 8px 10px 10px;
-  }
-  .group > .title,
-  .group > div > .title,
-  .cursor .title {
-    margin-bottom: 6px;
-  }
-  .modes {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px 10px;
   }
   .mode {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 5px;
   }
   .mode .key {
-    flex: 1;
+    width: 100%;
+    padding: 7px 2px;
+    white-space: normal;
+    line-height: 1.1;
+    min-height: 38px;
   }
   .led {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--track);
-    flex: none;
+    border: 1px solid var(--rule-soft);
+    background: transparent;
   }
   .led.lit {
-    background: #ff5a2a;
-    box-shadow: 0 0 6px #ff5a2a;
+    border-color: var(--led);
+    background: var(--led);
+  }
+  .foot {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .hint {
+    flex: 1;
+    font-size: 11px;
+    margin: 0;
+    max-width: 520px;
+  }
+  .scale {
+    display: flex;
+  }
+  .scale button {
+    font-size: 11px;
+    padding: 1px 7px;
+    margin-left: -1px;
+  }
+  .scale button.active {
+    background: var(--text);
+    color: var(--bg);
+  }
+
+  .side {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 268px;
+  }
+  .side .sign {
+    margin: 0 0 8px;
   }
   .wheel-row {
     display: flex;
@@ -295,29 +441,38 @@
   .cursor {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
   }
   .pair {
     display: flex;
     gap: 6px;
-    margin-bottom: 6px;
   }
   .pair .key {
     width: 48px;
+    padding: 7px 0;
   }
   .pads {
     display: flex;
     gap: 14px;
   }
+  .edit-col {
+    flex: 1;
+  }
   .numpad {
     display: grid;
-    grid-template-columns: repeat(3, 40px);
+    grid-template-columns: repeat(3, 38px);
     gap: 5px;
+  }
+  .numpad .key {
+    padding: 7px 0;
   }
   .edit {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 5px;
+  }
+  .edit .key {
+    padding: 7px 2px;
   }
   .ent {
     grid-column: span 2;
@@ -326,24 +481,5 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 6px;
-  }
-  .key {
-    background: var(--key);
-    border: 1px solid var(--key-edge);
-    border-bottom-width: 3px;
-    border-radius: 4px;
-    padding: 5px 4px;
-    font-size: 11px;
-    font-weight: 600;
-    white-space: nowrap;
-    touch-action: none;
-  }
-  .key.f {
-    padding: 8px 0;
-  }
-  .key.down {
-    border-bottom-width: 1px;
-    transform: translateY(2px);
-    background: var(--panel-2);
   }
 </style>

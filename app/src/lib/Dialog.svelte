@@ -21,7 +21,8 @@
   {@const d = dialogs.current}
   <div class="scrim" role="presentation" onkeydown={(e) => e.key === "Escape" && dialogs.close(null)}>
     <form class="dialog" bind:this={form} onsubmit={submit}>
-      <h2>{d.title}</h2>
+      <h2 class="sign">{d.title}</h2>
+      <div class="body">
       {#if d.text}<p>{d.text}</p>{/if}
       {#each d.fields as field, i}
         <label class="field">
@@ -39,6 +40,7 @@
         <button type="button" onclick={() => dialogs.close(null)}>Cancel</button>
         <button type="submit" class="primary" class:danger={d.danger}>{d.ok}</button>
       </div>
+      </div>
     </form>
   </div>
 {/if}
@@ -47,27 +49,27 @@
   .scrim {
     position: fixed;
     inset: 0;
-    background: rgb(0 0 0 / 0.35);
+    background: rgb(0 0 0 / 0.4);
     display: grid;
     place-items: center;
     z-index: 10;
   }
   .dialog {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 16px 18px;
-    min-width: 340px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    min-width: 360px;
     max-width: 480px;
-    box-shadow: 0 10px 40px rgb(0 0 0 / 0.3);
   }
   h2 {
+    margin: 0;
     font-size: 14px;
-    margin: 0 0 8px;
+    padding: 6px 12px;
+  }
+  .body {
+    padding: 14px 12px 12px;
   }
   p {
     margin: 0 0 12px;
-    color: var(--muted);
     white-space: pre-line;
     -webkit-user-select: text;
     user-select: text;
@@ -76,15 +78,20 @@
     display: grid;
     grid-template-columns: 90px 1fr;
     margin-bottom: 8px;
+    font-weight: 700;
+    font-size: 12px;
   }
   .buttons {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    margin-top: 12px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--rule-soft);
   }
   .danger {
     background: var(--bad);
     border-color: var(--bad);
+    color: #fff;
   }
 </style>

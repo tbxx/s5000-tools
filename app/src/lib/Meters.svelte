@@ -39,23 +39,23 @@
       {#if peak < SILENT}<div class="peak" style:bottom="{height(peak) * 100}%"></div>{/if}
     </div>
     <span class="label">{label}</span>
-    <span class="value lcd">{db >= SILENT ? "—" : `-${db}`}</span>
+    <span class="value">{db >= SILENT ? "—" : `-${db}`}</span>
   </div>
 {/snippet}
 
 <div class="wrap">
   <div class="rack">
     <div class="section">
-      <span class="title">Outputs</span>
+      <h3 class="sign">Outputs</h3>
       <div class="meters">
         <div class="scale">
-          {#each ticks as t}<span style:bottom="{(1 - t / FLOOR) * 100}%">{t === 0 ? "0" : `-${t}`}</span>{/each}
+          {#each ticks as t}<span style:bottom="{(1 - t / FLOOR) * 100}%">{t === 0 ? "0" : `−${t}`}</span>{/each}
         </div>
         {#each outputs as db, i}{@render meter(db, peaks[i].db, String(i + 1))}{/each}
       </div>
     </div>
     <div class="section">
-      <span class="title">Record</span>
+      <h3 class="sign">Record</h3>
       <div class="meters">
         {#each inputs as db, i}{@render meter(db, peaks[16 + i].db, i ? "R" : "L")}{/each}
       </div>
@@ -81,17 +81,15 @@
   }
   .rack {
     display: flex;
-    gap: 14px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 10px 14px 12px;
+    gap: 28px;
   }
   .section {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 8px;
+    gap: 12px;
+  }
+  .section .sign {
+    margin: 0;
   }
   .meters {
     display: flex;
@@ -100,7 +98,7 @@
   }
   .scale {
     position: relative;
-    width: 24px;
+    width: 26px;
     height: 320px;
     font-size: 9px;
     color: var(--muted);
@@ -108,8 +106,16 @@
   }
   .scale span {
     position: absolute;
-    right: 2px;
+    right: 4px;
     transform: translateY(50%);
+  }
+  .scale span::after {
+    content: "";
+    position: absolute;
+    right: -4px;
+    top: 50%;
+    width: 3px;
+    border-top: 1px solid var(--rule);
   }
   .meter {
     display: flex;
@@ -121,22 +127,24 @@
     position: relative;
     width: 22px;
     height: 320px;
-    background: var(--lcd-bg);
-    border: 1px solid var(--lcd-edge);
-    border-radius: 2px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--rule);
     overflow: hidden;
-    /* Segment lines, every 4 px. */
-    background-image: repeating-linear-gradient(to top, transparent 0 3px, rgb(0 0 0 / 0.12) 3px 4px);
   }
+  /* Green to -12 dB, yellow to -3 dB, red above (FLOOR = 60 dB). */
   .fill {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(to top, #2fa84f 0%, #2fa84f 70%, #e2c12c 85%, #e0452c 100%);
+    background: linear-gradient(
+      to top,
+      var(--mta-green) 0 80%,
+      var(--mta-yellow) 80% 95%,
+      var(--mta-red) 95% 100%
+    );
     background-size: 100% 320px;
     background-position: bottom;
-    mask-image: repeating-linear-gradient(to top, #000 0 3px, transparent 3px 4px);
   }
   .peak {
     position: absolute;
@@ -146,16 +154,18 @@
     background: var(--text);
   }
   .label {
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 700;
   }
   .value {
     font-size: 9px;
-    padding: 0 2px;
     width: 26px;
     text-align: center;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
   }
   .note {
     font-size: 12px;
+    margin-top: 16px;
   }
 </style>

@@ -9,11 +9,12 @@
   import { app } from "./lib/state.svelte";
   import type { Mode } from "./lib/api";
 
+  // One route bullet per view; ⌘1–⌘4 switch views.
   const views = [
-    { id: "transfers", label: "Transfers" },
-    { id: "panel", label: "Front panel" },
-    { id: "meters", label: "Meters" },
-    { id: "program", label: "Program" },
+    { id: "transfers", label: "Transfers", bullet: "blue" },
+    { id: "panel", label: "Front panel", bullet: "red" },
+    { id: "meters", label: "Meters", bullet: "green" },
+    { id: "program", label: "Program", bullet: "orange" },
   ] as const;
   let view = $state<(typeof views)[number]["id"]>("transfers");
   let mode = $state<Mode>("simulator");
@@ -31,20 +32,34 @@
     openProgram = hash.get("program") ?? undefined;
     if (v) view = v.id;
   });
+
+  function keyDown(e: KeyboardEvent) {
+    const n = parseInt(e.key);
+    if (!e.metaKey || e.shiftKey || e.altKey || !(n >= 1 && n <= views.length)) return;
+    e.preventDefault();
+    view = views[n - 1].id;
+  }
 </script>
+
+<svelte:window onkeydown={keyDown} />
 
 <div class="shell">
   <header>
     <div class="brand">s5000-tools</div>
     <nav>
-      {#each views as v}
-        <button class:active={view === v.id} onclick={() => (view = v.id)}>{v.label}</button>
+      {#each views as v, i}
+        <button class:active={view === v.id} onclick={() => (view = v.id)} title="{v.label} (⌘{i + 1})">
+          <span class="bullet {v.bullet}">{i + 1}</span>{v.label}
+        </button>
       {/each}
     </nav>
     <div class="connection">
       {#if app.info}
-        <span class="lcd" title="OS {app.info.os_version}">
-          {app.info.name} · OS {app.info.os_version} · wave {app.info.wave_free}% · CPU {app.info.cpu_free}% free
+        <span class="info" title="OS {app.info.os_version}">
+          <b>{app.info.name}</b>
+          <span>OS {app.info.os_version}</span>
+          <span>Wave {app.info.wave_free}% free</span>
+          <span>CPU {app.info.cpu_free}% free</span>
         </span>
         <button onclick={() => app.disconnect()} disabled={queue.running}>Disconnect</button>
       {:else}
@@ -92,41 +107,87 @@
     grid-template-rows: auto 1fr auto;
     height: 100vh;
   }
+  /* The top bar is a sign: black, with a hairline white rule just below the top edge. */
   header {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 8px 12px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--line);
+    gap: 20px;
+    padding: 10px 12px 7px;
+    background: var(--sign-bg);
+    color: var(--sign-text);
+  }
+  header::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 3px;
+    border-top: 1px solid var(--sign-rule);
   }
   .brand {
     font-weight: 700;
-    letter-spacing: 0.02em;
+    font-size: 15px;
+    letter-spacing: -0.01em;
   }
   nav {
     display: flex;
-    gap: 2px;
-    background: var(--panel-2);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 2px;
+    gap: 4px;
   }
   nav button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     border: none;
     background: transparent;
-    padding: 3px 12px;
+    color: var(--sign-muted);
+    padding: 3px 8px 3px 4px;
+    font-size: 13px;
+    border-bottom: 2px solid transparent;
+  }
+  nav button:hover:not(:disabled),
+  nav button:active:not(:disabled) {
+    background: transparent;
+    color: var(--sign-text);
   }
   nav button.active {
-    background: var(--panel);
-    box-shadow: 0 0 0 1px var(--line);
-    font-weight: 600;
+    color: var(--sign-text);
+    border-bottom-color: var(--sign-text);
   }
   .connection {
     margin-left: auto;
     display: flex;
     gap: 8px;
     align-items: center;
+  }
+  .connection button,
+  .connection select {
+    background: transparent;
+    color: var(--sign-text);
+    border-color: var(--sign-muted);
+  }
+  .connection button:hover:not(:disabled) {
+    background: transparent;
+    border-color: var(--sign-text);
+  }
+  .connection button.primary {
+    background: var(--sign-text);
+    color: var(--sign-bg);
+    border-color: var(--sign-text);
+  }
+  .connection select option {
+    background: var(--surface);
+    color: var(--text);
+  }
+  .info {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--sign-muted);
+    white-space: nowrap;
+  }
+  .info b {
+    color: var(--sign-text);
   }
   main {
     min-height: 0;
@@ -138,24 +199,25 @@
     gap: 8px;
     padding: 4px 12px;
     font-size: 12px;
-    border-top: 1px solid var(--line);
-    background: var(--panel);
+    border-top: 1px solid var(--rule);
+    background: var(--surface);
     color: var(--muted);
   }
   .dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--line);
+    background: var(--rule-soft);
   }
   .dot.on {
     background: var(--ok);
   }
   .dot.sim {
-    background: var(--accent);
+    background: var(--mta-yellow);
   }
   .error {
     color: var(--bad);
+    font-weight: 700;
     -webkit-user-select: text;
     user-select: text;
   }
@@ -163,6 +225,7 @@
     border: none;
     background: none;
     color: var(--muted);
+    font-weight: 400;
     text-decoration: underline;
     padding: 0;
   }
