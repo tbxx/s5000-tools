@@ -32,6 +32,8 @@ any virtual machine first.
     use, with what already exists at the destination unticked.
   - Dragging out to the Finder fetches the items first (shown in the queue),
     then starts the drag.
+  - Disk loads, saves and deletes are experimental (untested on hardware):
+    the Disks row is tagged, and the app asks once before the first one.
 - **Front panel (⌘2):** the live screen with F1–F8 to its left and F9–F16 to
   its right, each beside its screen row. Clicking a row of the screen presses
   that side's key. Keyboard: arrows, 0–9, +/−, Enter = Ent/Play, Esc = Exit.

@@ -4,12 +4,100 @@ Open tools for the **Akai S5000/S6000** sampler over USB: transfer samples,
 programs and multis, edit them, view the front panel and meters. They
 replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
 
-**Status:** the `s5k` command works on real hardware (macOS, S5000 OS 2.14):
-memory listing, transfers with dependencies, rename/delete/create, live
-parameter editing (programs, keygroups, zones, multi parts, samples), screen,
-keys and meters. The editor app (`app/`) has transfers, front panel, meters
-and a program editor; it is tested against the built-in simulator and awaits
-a hardware run.
+> **Alpha.** This works for its author on one sampler. It may still do
+> something unexpected on yours: keep backups of anything you care about,
+> and please [report](https://github.com/tbxx/s5000-tools/issues) what works
+> and what doesn't, with your model, OS version and computer.
+
+## What's here
+
+- **The app**:
+  - **Transfers:** a tree of each connected sampler's memory and disks. Drag
+    between the sampler, a Mac/PC folder, the Finder and other samplers.
+    Programs and multis bring their samples and programs along.
+  - **Front panel:** the live screen with clickable soft keys.
+  - **Meters.**
+  - **Program editor:** live, including draggable envelopes.
+- **`s5k`**, a command-line tool for the same jobs; see
+  [docs/cli.md](docs/cli.md).
+
+## Tested so far
+
+| | Status |
+|---|---|
+| S5000, OS 2.14, macOS 14 (Apple Silicon) | Works: transfers in both directions with dependencies, rename/delete/create, live parameter editing, front panel, meters |
+| Disk operations (load, save, delete on the sampler's disks) | **Experimental.** Built from Akai's spec but untested on hardware; the app asks before the first one. One documented disk command restarts an S5000 and is never sent |
+| S6000, OS 1.x, other OS 2.x versions | Untested; likely to work |
+| Windows, Linux | Builds and passes tests; untested with a sampler |
+
+## Install
+
+Download the app or the `s5k` command for your system from
+[Releases](https://github.com/tbxx/s5000-tools/releases). You need an
+S5000/S6000 with OS 2.x and the USB interface board. Only one program can use
+the sampler at a time, so quit ak.Sys (or release the sampler from any
+virtual machine) first.
+
+### macOS
+
+No driver is needed. The app isn't signed by Apple yet, so the first time:
+
+- **macOS 14 and earlier:** right-click the app, choose **Open**, then
+  **Open** again.
+- **macOS 15 and later:** open it once (it is blocked), then go to
+  System Settings → Privacy & Security and click **Open Anyway**.
+
+For the `s5k` command, remove the download quarantine:
+`xattr -d com.apple.quarantine s5k`.
+
+### Linux
+
+Give your user access to the sampler with a udev rule. Create
+`/etc/udev/rules.d/70-akai-s5000.rules` containing:
+
+```
+SUBSYSTEM=="usb", ATTRS{idVendor}=="09e8", ATTRS{idProduct}=="005e", MODE="0660", TAG+="uaccess"
+```
+
+Then run `sudo udevadm control --reload-rules && sudo udevadm trigger`, and
+unplug and replug the sampler.
+
+### Windows
+
+The tools talk to the sampler through Microsoft's generic **WinUSB** driver,
+which you install for the sampler with [Zadig](https://zadig.akeo.ie):
+
+1. Connect and switch on the sampler, then run Zadig.
+2. Choose **Options → List All Devices**, then select the Akai sampler.
+3. Choose **WinUSB** as the driver and click **Replace Driver**.
+
+> **This replaces Akai's driver, so ak.Sys stops working** until you switch
+> back. To return to Akai's driver: in Device Manager, right-click the
+> sampler, choose **Uninstall device**, tick **Delete the driver software for
+> this device** (or **Attempt to remove the driver**), then unplug and replug
+> the sampler. Windows then uses Akai's driver again, if it is installed.
+
+## Known issues
+
+- **Unconfirmed:** files dragged from the app to the Finder may not be
+  deletable afterwards. If you see this, please say so in an issue.
+- Quitting the app in the middle of a transfer or screen update can leave the
+  sampler showing "USB Write Timeout". Press OK on the sampler to continue.
+
+## Building
+
+```
+cargo build --release -p s5k-cli          # the s5k command
+cd app && npm install && npx tauri dev    # the editor app (see app/README.md)
+cargo test
+# optional: check a folder of your own files (nothing leaves your machine)
+S5K_LIBRARY=/path/to/files cargo test --release -p s5k-formats --test library -- --ignored
+# with a sampler connected and nothing else using it (adds and removes test items)
+S5K_HARDWARE=1 cargo test -p s5000-tools-app hardware -- --ignored --test-threads=1
+```
+
+Pushing a `v*` tag builds release files for every system into a draft GitHub
+release (`.github/workflows/release.yml`).
 
 | Crate | Purpose |
 |---|---|
@@ -30,28 +118,9 @@ a hardware run.
 
 ## Planned
 
-- Multi and effects editors in the app; disk browsing (commands are in place,
-  untested without a disk).
-- Release builds for macOS, Windows and Linux.
-
-## Building
-
-```
-cargo build --release -p s5k-cli          # the s5k command
-cd app && npm install && npx tauri dev    # the editor app (see app/README.md)
-cargo test
-# optional: check a folder of your own files (nothing leaves your machine)
-S5K_LIBRARY=/path/to/files cargo test --release -p s5k-formats --test library -- --ignored
-```
-
-## Requirements
-
-An S5000/S6000 with OS 2.x and the USB interface board.
-
-- **macOS:** no driver needed.
-- **Linux:** a udev rule granting access to USB device `09e8:005e`.
-- **Windows:** the WinUSB driver for the sampler, installed with
-  [Zadig](https://zadig.akeo.ie). This replaces Akai's driver.
+- Multi and effects editors in the app.
+- Confirming disk operations on hardware.
+- Signed and notarised macOS builds.
 
 ## Credits
 

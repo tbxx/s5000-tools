@@ -166,6 +166,8 @@ export interface Settings {
   deps?: boolean;
   replace?: boolean;
   mode?: Mode;
+  /** The user accepted that disk writes and loads are experimental. */
+  diskOpsAccepted?: boolean;
 }
 
 type Id = number | undefined;

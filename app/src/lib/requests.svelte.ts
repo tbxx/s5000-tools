@@ -3,6 +3,7 @@
 // the Finder.
 import { SvelteMap } from "svelte/reactivity";
 import { api, kindOfFile, message, type Kind, type Line, type Place, type Source, type TransferResult } from "./api";
+import { acceptDiskOps } from "./experimental";
 import { queue } from "./queue.svelte";
 import { app } from "./state.svelte";
 import { describePlace, sourceLabel, tree } from "./tree.svelte";
@@ -112,6 +113,7 @@ class Transfers {
   async send(items: Transferable[], dest: Place) {
     items = items.filter((i) => !samePlace(i.source, dest));
     if (!items.length) return;
+    if ((dest.at === "disk" || items.some((i) => i.source.at === "disk")) && !(await acceptDiskOps())) return;
     const deps = !!app.settings.deps;
     for (const [n, item] of items.entries()) {
       const base = {
