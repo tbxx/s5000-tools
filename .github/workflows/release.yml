@@ -28,11 +28,14 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           # Tags with a suffix (v0.1.0-alpha.1) are pre-releases.
-          pre=""
-          case "$TAG" in *-*) pre="--prerelease";; esac
-          gh release create "$TAG" --draft $pre --title "s5000-tools $TAG" --notes-file .github/release-notes.md
-          # Drafts are not found by tag, so look the new one up in the list.
-          id=$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name == \"$TAG\") | .id" | head -1)
+          pre=false
+          case "$TAG" in *-*) pre=true;; esac
+          # Creating it through the API returns its id directly (a new draft
+          # may not be listed yet, and drafts can't be looked up by tag).
+          id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/releases" \
+            -f tag_name="$TAG" -f name="s5000-tools $TAG" -F draft=true -F prerelease=$pre \
+            -F body=@.github/release-notes.md --jq .id)
+          test -n "$id"
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
   app:
@@ -77,6 +80,8 @@ jobs:
         run: npm ci
       - name: Build (and attach to the draft release)
         uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
           projectPath: app
           tauriScript: npx tauri
