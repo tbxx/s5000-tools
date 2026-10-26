@@ -12,7 +12,8 @@ use tauri::ipc::Response;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::disk::{self, DiskInfo, DiskPos, Listing};
-use crate::params::{self, ParamInfo, ProgramView};
+use crate::multi::{self, MultiLive};
+use crate::params::{self, MultiView, ParamInfo, ProgramView};
 use crate::samplers::{Origin, SamplerMeta, Samplers, UsbDevice};
 use crate::transfer::{self, Kind, Line, Place, Progress, Request, Source, TransferResult, index_of};
 use crate::worker::{CmdResult, Device};
@@ -557,4 +558,60 @@ pub async fn write_param(
         dev.write_param(param, t, selector.as_slice(), &s5k::Value::Number(value))
     })
     .await
+}
+
+// --- Multi editor ------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn multi_catalog() -> Vec<ParamInfo> {
+    params::multi_catalog()
+}
+
+#[tauri::command]
+pub async fn read_multi(
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
+    name: String,
+) -> CmdResult<MultiView> {
+    multi::read(&samplers, sampler, name).await
+}
+
+#[tauri::command]
+pub fn read_multi_file(path: PathBuf) -> CmdResult<MultiView> {
+    multi::read_file(&path)
+}
+
+/// Mute, solo and the multi number, which a saved multi does not hold.
+#[tauri::command]
+pub async fn read_multi_live(
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
+    multi: String,
+) -> CmdResult<MultiLive> {
+    multi::read_live(&samplers, sampler, multi).await
+}
+
+/// Sets one setting of a multi in memory, or of one of its parts (from 0).
+#[tauri::command]
+pub async fn write_multi_param(
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
+    multi: String,
+    id: String,
+    part: Option<u8>,
+    value: i32,
+) -> CmdResult<()> {
+    multi::write(&samplers, sampler, multi, id, part, value).await
+}
+
+/// Assigns a program in memory to a part (from 0).
+#[tauri::command]
+pub async fn set_part_program(
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
+    multi: String,
+    part: u8,
+    program: String,
+) -> CmdResult<()> {
+    multi::set_part_program(&samplers, sampler, multi, part, program).await
 }

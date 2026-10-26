@@ -5,6 +5,8 @@
 
 mod commands;
 mod disk;
+mod drag_out;
+mod multi;
 mod params;
 mod samplers;
 mod transfer;
@@ -39,6 +41,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::samplers,
+            drag_out::drag_out_start,
+            drag_out::drag_out_finish,
             commands::usb_devices,
             commands::add_sampler,
             commands::remove_sampler,
@@ -71,6 +75,12 @@ fn main() {
             commands::read_program_file,
             commands::read_live,
             commands::write_param,
+            commands::multi_catalog,
+            commands::read_multi,
+            commands::read_multi_file,
+            commands::read_multi_live,
+            commands::write_multi_param,
+            commands::set_part_program,
         ])
         .run(tauri::generate_context!())
         .expect("error while running s5000-tools");

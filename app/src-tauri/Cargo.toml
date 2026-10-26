@@ -24,3 +24,10 @@ tokio = { version = "1", features = ["sync"] }
 s5k = { path = "../../crates/s5k" }
 s5k-formats = { path = "../../crates/s5k-formats" }
 s5k-usb = { path = "../../crates/s5k-usb" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# File-promise drags to the Finder (src/drag_out.rs); versions as in Tauri's tree.
+objc2 = "0.6"
+objc2-app-kit = "0.3"
+objc2-foundation = "0.3"
+block2 = "0.6"

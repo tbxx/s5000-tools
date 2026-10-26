@@ -3,7 +3,7 @@
 // the front panel, meters and program editor use, and what `info`,
 // `memory` and `connected` describe.
 import { listen } from "@tauri-apps/api/event";
-import { api, message, type Info, type Memory, type Mode, type Origin, type SamplerMeta, type Settings } from "./api";
+import { api, message, type Info, type Memory, type Origin, type SamplerMeta, type Settings } from "./api";
 
 export interface SamplerView extends SamplerMeta {
   memory: Memory;
@@ -123,19 +123,8 @@ class AppState {
     }
   }
 
-  /** Connects a simulator, or the first USB sampler not yet connected, and makes it active. */
-  async connect(mode: Mode) {
-    this.save({ mode });
-    let origin: Origin = { kind: "simulator" };
-    if (mode === "usb") {
-      try {
-        const free = (await api.usbDevices()).find((d) => d.connected === null);
-        if (!free) return this.fail("No other Akai S5000/S6000 found on USB.");
-        origin = { kind: "usb", key: free.key };
-      } catch (e) {
-        return this.fail(e);
-      }
-    }
+  /** Connects a sampler (or a simulator) and makes it active. */
+  async connect(origin: Origin) {
     const s = await this.add(origin);
     if (s) await this.setActive(s.id);
   }

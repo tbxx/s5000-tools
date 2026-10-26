@@ -3,32 +3,67 @@
   import Dialog from "./lib/Dialog.svelte";
   import FrontPanel from "./lib/FrontPanel.svelte";
   import Meters from "./lib/Meters.svelte";
+  import MultiEditor from "./lib/MultiEditor.svelte";
   import ProgramEditor from "./lib/ProgramEditor.svelte";
   import Transfers from "./lib/Transfers.svelte";
   import { queue } from "./lib/queue.svelte";
   import { app } from "./lib/state.svelte";
-  import type { Mode } from "./lib/api";
+  import { api, type UsbDevice } from "./lib/api";
 
-  // One route bullet per view; ⌘1–⌘4 switch views.
+  // One route bullet per view; ⌘1–⌘5 switch views.
   const views = [
     { id: "transfers", label: "Transfers", bullet: "blue" },
     { id: "panel", label: "Front panel", bullet: "red" },
     { id: "meters", label: "Meters", bullet: "green" },
     { id: "program", label: "Program", bullet: "orange" },
+    { id: "multi", label: "Multi", bullet: "purple" },
   ] as const;
   let view = $state<(typeof views)[number]["id"]>("transfers");
-  let mode = $state<Mode>("simulator");
+  // The Connect menu: each USB sampler not yet connected, then "simulator".
+  // A hardware sampler is preselected whenever one is visible, unless the
+  // user has picked something else.
+  let usb = $state<UsbDevice[]>([]);
+  let choice = $state("simulator");
+  let picked = false;
+
+  const product = (label: string) => label.match(/S[56]000/i)?.[0].toUpperCase() ?? "Sampler";
+
+  async function scan() {
+    try {
+      usb = (await api.usbDevices()).filter((d) => d.connected === null);
+    } catch {
+      usb = [];
+    }
+    const keys = usb.map((d) => d.key);
+    if (!picked || (choice !== "simulator" && !keys.includes(choice))) {
+      choice = keys[0] ?? "simulator";
+      picked = false;
+    }
+  }
+
+  async function connect() {
+    await app.connect(choice === "simulator" ? { kind: "simulator" } : { kind: "usb", key: choice });
+    picked = false;
+    void scan();
+  }
+
+  // Look for samplers being switched on or plugged in while nothing is connected.
+  $effect(() => {
+    if (app.connected) return;
+    void scan();
+    const timer = setInterval(scan, 2000);
+    return () => clearInterval(timer);
+  });
   let openProgram = $state<string | undefined>();
 
   onMount(async () => {
     await app.init();
     await queue.init();
-    mode = app.settings.mode ?? "simulator";
     // For development: #connect=simulator&view=program&program=Drums connects
     // to the simulator and opens a view (and a program).
     const hash = new URLSearchParams(location.hash.slice(1));
     const v = views.find((x) => x.id === hash.get("view"));
-    if (hash.get("connect") === "simulator") await app.connect("simulator");
+    if (hash.get("connect") === "simulator") await app.connect({ kind: "simulator" });
     openProgram = hash.get("program") ?? undefined;
     if (v) view = v.id;
   });
@@ -63,11 +98,13 @@
         </span>
         <button onclick={() => app.disconnect()} disabled={queue.running}>Disconnect</button>
       {:else}
-        <select bind:value={mode} disabled={app.connecting} aria-label="Connection">
+        <select bind:value={choice} onchange={() => (picked = true)} disabled={app.connecting} aria-label="Sampler">
+          {#each usb as d (d.key)}
+            <option value={d.key} title={d.label}>{product(d.label)} · USB {d.key}</option>
+          {/each}
           <option value="simulator">Simulator</option>
-          <option value="usb">Real sampler (USB)</option>
         </select>
-        <button class="primary" onclick={() => app.connect(mode)} disabled={app.connecting}>
+        <button class="primary" onclick={connect} disabled={app.connecting}>
           {app.connecting ? "Connecting…" : "Connect"}
         </button>
       {/if}
@@ -81,8 +118,10 @@
       <FrontPanel />
     {:else if view === "meters"}
       <Meters />
-    {:else}
+    {:else if view === "program"}
       <ProgramEditor initial={openProgram} />
+    {:else}
+      <MultiEditor />
     {/if}
   </main>
 

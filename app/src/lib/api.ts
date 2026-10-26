@@ -139,7 +139,7 @@ export interface Levels {
 
 export interface ParamInfo {
   id: string;
-  scope: "program" | "keygroup" | "zone";
+  scope: "program" | "keygroup" | "zone" | "multi" | "multi_part";
   label: string;
   encoding: string | null;
   min: number | null;
@@ -159,6 +159,19 @@ export interface ProgramView {
   name: string;
   values: Values;
   keygroups: { values: Values; zones: { sample: string | null; values: Values }[] }[];
+}
+
+/** A multi as read from its .akm: multi values and one entry per part (from part 1). */
+export interface MultiView {
+  name: string;
+  values: Values;
+  parts: { program: string | null; values: Values }[];
+}
+
+/** Values a saved multi lacks (multi number; mute and solo per part), read live. */
+export interface MultiLive {
+  values: Values;
+  parts: Values[];
 }
 
 export interface Settings {
@@ -198,6 +211,10 @@ export const api = {
   planTransfer: (source: Source, dest: Place) => invoke<Line[]>("plan_transfer", { source, dest }),
   transfer: (job: number, request: Request) => invoke<TransferResult>("transfer", { job, request }),
   dragFolder: () => invoke<string>("drag_folder"),
+  /** macOS: starts a file-promise drag at the pointer; returns its token. */
+  dragOutStart: (items: Source[], icon: number[]) => invoke<number>("drag_out_start", { items, icon }),
+  /** The transfers for a promise drag finished (error = null) or failed ("cancelled" to drop quietly). */
+  dragOutFinish: (token: number, error: string | null) => invoke<void>("drag_out_finish", { token, error }),
   listFolder: (path: string) => invoke<Entry[]>("list_folder", { path }),
   loadSettings: () => invoke<Settings | null>("load_settings"),
   saveSettings: (settings: Settings) => invoke<void>("save_settings", { settings }),
@@ -212,6 +229,15 @@ export const api = {
   readLive: (program: string, keygroup: number) => invoke<Values>("read_live", { program, keygroup }),
   writeParam: (program: string, id: string, keygroup: number | null, selector: number | null, value: number) =>
     invoke<void>("write_param", { program, id, keygroup, selector, value }),
+  multiCatalog: () => invoke<ParamInfo[]>("multi_catalog"),
+  readMulti: (name: string) => invoke<MultiView>("read_multi", { name }),
+  readMultiFile: (path: string) => invoke<MultiView>("read_multi_file", { path }),
+  readMultiLive: (multi: string) => invoke<MultiLive>("read_multi_live", { multi }),
+  /** `part` counts from 0; null for multi-level settings. */
+  writeMultiParam: (multi: string, id: string, part: number | null, value: number) =>
+    invoke<void>("write_multi_param", { multi, id, part, value }),
+  setPartProgram: (multi: string, part: number, program: string) =>
+    invoke<void>("set_part_program", { multi, part, program }),
 };
 
 /** Error text from a rejected command. */

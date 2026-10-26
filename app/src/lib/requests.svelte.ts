@@ -225,6 +225,32 @@ class Transfers {
     return all.flat();
   }
 
+  /**
+   * Copies items dropped in the Finder into `folder` (a file-promise drag on
+   * macOS). There is no dependency dialog: the app is not in front then, so
+   * "Include dependencies" and "Replace existing" decide. Rejects if any fail.
+   */
+  async toFinderFolder(items: Transferable[], folder: string): Promise<void> {
+    const jobs = items.map((i) =>
+      queue.add({
+        kind: i.kind,
+        label: sourceLabel(i.source),
+        from: this.from(i.source),
+        to: "Finder",
+        size: i.size,
+        forFinder: true,
+        request: {
+          source: i.source,
+          dest: { at: "mac", folder },
+          deps: { mode: app.settings.deps && i.kind !== "sample" ? "all" : "skip" },
+          replace: !!app.settings.replace,
+        },
+      }),
+    );
+    const failed = (await Promise.allSettled(jobs)).filter((r) => r.status === "rejected");
+    if (failed.length) throw (failed[0] as PromiseRejectedResult).reason;
+  }
+
   private async fetchForFinder(i: Transferable): Promise<string[]> {
     const folder = await api.dragFolder();
     const r: TransferResult = await queue.add({

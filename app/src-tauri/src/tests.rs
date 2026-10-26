@@ -574,3 +574,135 @@ fn idle_keep_alive_and_panel() {
     assert!(block(worker.with(|dev| dev.info())).is_err());
     assert_eq!(samplers.list()[0].status, Status::Connected);
 }
+
+// --- Multi editor --------------------------------------------------------------------------
+
+#[test]
+fn multi_editor_reads_a_multi_in_memory() {
+    use crate::multi;
+    let samplers = simulators(1);
+    // The simulator's demo multi: 32 parts, programs on parts 1 and 2.
+    let view = block(multi::read(&samplers, None, "Song".into())).unwrap();
+    assert_eq!(view.name, "Song");
+    assert_eq!(view.values.get("multi.part_count"), Some(&32));
+    assert_eq!(view.parts.len(), 32);
+    assert_eq!(view.parts[0].program.as_deref(), Some("Drums"));
+    assert_eq!(view.parts[1].program.as_deref(), Some("Pad"));
+    assert_eq!(view.parts[2].program, None);
+    let part = &view.parts[5].values;
+    assert_eq!(part.get("multi_part.midi_channel"), Some(&5));
+    assert_eq!(part.get("multi_part.level"), Some(&100));
+    assert_eq!(part.get("multi_part.low_key"), Some(&21));
+    assert_eq!(part.get("multi_part.high_key"), Some(&127));
+    // Mute, solo and the multi number are read live; the simulator refuses
+    // them, which leaves them out rather than failing the read.
+    let live = block(multi::read_live(&samplers, None, "Song".into())).unwrap();
+    assert_eq!(live.parts.len(), 32);
+    assert!(live.values.is_empty());
+    assert!(live.parts.iter().all(|p| p.is_empty()));
+    // A multi that is not in memory.
+    assert!(
+        block(multi::read(&samplers, None, "Nope".into()))
+            .unwrap_err()
+            .contains("no longer in memory")
+    );
+}
+
+#[test]
+fn multi_editor_new_multi_and_file() {
+    use crate::multi;
+    let samplers = simulators(1);
+    let w = samplers.worker(None).unwrap();
+    block(w.with(|dev| dev.create_multi("Big", 64))).unwrap();
+    assert!(names(&samplers, 1)[2].contains(&"Big".to_string()));
+    let view = block(multi::read(&samplers, None, "Big".into())).unwrap();
+    assert_eq!(view.parts.len(), 64);
+    assert_eq!(view.values.get("multi.part_count"), Some(&64));
+
+    let dir = temp_dir("multi-file");
+    let mut akm = s5k_formats::Multi::blank(32);
+    akm.set_part_program(3, "Keys").unwrap();
+    akm.part_set(3, "fx_send", 40).unwrap();
+    let path = dir.join("Set A.akm");
+    std::fs::write(&path, akm.to_bytes()).unwrap();
+    let view = multi::read_file(&path).unwrap();
+    assert_eq!(view.name, "Set A");
+    assert_eq!(view.parts[3].program.as_deref(), Some("Keys"));
+    assert_eq!(view.parts[3].values.get("multi_part.fx_send"), Some(&40));
+    assert!(multi::read_file(&dir.join("missing.akm")).is_err());
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// The simulator does not take multi edits (as with programs), so this checks
+/// that each write is addressed, validated and sent: the simulator's refusal
+/// comes back as the sampler's error, while bad requests never reach it.
+#[test]
+fn multi_editor_writes_part_parameters() {
+    use crate::multi;
+    let samplers = simulators(1);
+    let write = |id: &str, part: Option<u8>, value: i32| {
+        block(multi::write(
+            &samplers,
+            None,
+            "Song".into(),
+            id.into(),
+            part,
+            value,
+        ))
+    };
+    let refused = |r: CmdResult<()>| {
+        let e = r.unwrap_err();
+        assert!(e.contains("the sampler refused 2C"), "{e}");
+    };
+    refused(write("multi_part.level", Some(3), 80));
+    refused(write("multi_part.pan", Some(0), -50));
+    refused(write("multi_part.mute", Some(31), 1));
+    refused(write("multi.program_number", None, 12));
+    refused(block(multi::set_part_program(
+        &samplers,
+        None,
+        "Song".into(),
+        2,
+        "Pad".into(),
+    )));
+    // Checked before anything is sent.
+    assert!(
+        write("multi_part.level", Some(3), 101)
+            .unwrap_err()
+            .contains("0..100")
+    );
+    assert!(
+        write("multi_part.level", None, 80)
+            .unwrap_err()
+            .contains("needs a part")
+    );
+    assert!(
+        write("multi.program_number", Some(0), 1)
+            .unwrap_err()
+            .contains("not a part")
+    );
+    assert!(
+        write("multi.program_number", None, 129)
+            .unwrap_err()
+            .contains("0..128")
+    );
+    assert!(
+        write("multi_part.nope", Some(0), 1)
+            .unwrap_err()
+            .contains("unknown")
+    );
+    assert!(
+        block(multi::set_part_program(
+            &samplers,
+            None,
+            "Song".into(),
+            2,
+            "Nope".into()
+        ))
+        .unwrap_err()
+        .contains("no longer in memory")
+    );
+    // The multi itself is unchanged.
+    let view = block(multi::read(&samplers, None, "Song".into())).unwrap();
+    assert_eq!(view.parts[3].values.get("multi_part.level"), Some(&100));
+}

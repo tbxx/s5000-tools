@@ -5,6 +5,7 @@
   // belongs (.wav to Samples, .akp to Programs, .akm to Multis).
   import { onMount, untrack } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
+  import { listen } from "@tauri-apps/api/event";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { open } from "@tauri-apps/plugin-dialog";
   import { startDrag } from "@crabnebula/tauri-plugin-drag";
@@ -465,8 +466,45 @@
     return c.toDataURL("image/png");
   }
 
+  // macOS drags sampler items out as file promises: nothing is fetched until
+  // they are dropped, and then straight into the folder they were dropped in.
+  const promiseDrags = /Macintosh/.test(navigator.userAgent);
+  /** Promise drags in progress, by token. */
+  const dragsOut = new Map<number, Drag>();
+
+  function pngBytes(dataUrl: string): number[] {
+    const bin = atob(dataUrl.slice(dataUrl.indexOf(",") + 1));
+    return Array.from(bin, (c) => c.charCodeAt(0));
+  }
+
+  async function promiseDrag(d: Drag) {
+    const icon = pngBytes(dragIcon(d.label, d.items.length));
+    drag = null;
+    pressed = null;
+    try {
+      dragsOut.set(await api.dragOutStart(d.items.map((i) => i.source), icon), d);
+    } catch (e) {
+      app.fail(e);
+    }
+  }
+
+  async function droppedInFinder(token: number, folder: string) {
+    const d = dragsOut.get(token);
+    dragsOut.delete(token);
+    if (!d) return void api.dragOutFinish(token, "cancelled");
+    try {
+      await transfers.toFinderFolder(d.items, folder);
+      await api.dragOutFinish(token, null);
+      app.say(`Copied ${d.label} to ${folder}`);
+    } catch (e) {
+      await api.dragOutFinish(token, message(e) === "cancelled" ? "cancelled" : message(e)).catch(() => {});
+      if (message(e) !== "cancelled") app.fail(e);
+    }
+  }
+
   /** Leaves the window: hand the files to a native drag, fetching them first if needed. */
   async function toFinder(d: Drag) {
+    if (promiseDrags && d.items.every((i) => i.source.at !== "mac")) return promiseDrag(d);
     let paths = transfers.ready(d.items);
     if (!paths) {
       d.finder = "fetching";
@@ -533,8 +571,16 @@
       const items = transfers.fromPaths(payload.paths);
       if (items.length) send(items, place);
     });
+    const unlistenDrop = listen<{ token: number; folder: string }>("drag-out-drop", ({ payload }) =>
+      droppedInFinder(payload.token, payload.folder),
+    );
+    const unlistenEnd = listen<{ token: number; dropped: boolean }>("drag-out-end", ({ payload }) => {
+      if (!payload.dropped) dragsOut.delete(payload.token);
+    });
     return () => {
       unlisten.then((f) => f());
+      unlistenDrop.then((f) => f());
+      unlistenEnd.then((f) => f());
       if (playing) api.audition(playing.sampler, playing.name, false).catch(() => {});
       if (transfers.dialog) transfers.answer("cancel");
     };
@@ -686,7 +732,7 @@
       {#if drag?.from === "tree" && drag.finder === "fetching"}
         {finderWaiting ? "Waiting for the sampler to finish its other transfers" : `Fetching for the Finder${finderPct === null ? "…" : ` ${finderPct}%`}`} · keep holding
       {:else if drag?.from === "tree"}
-        {transfers.ready(drag.items) ? "Drag out to the Finder" : "Hold here or drag out of the window to fetch for the Finder"}
+        {promiseDrags || transfers.ready(drag.items) ? "Drag out to the Finder" : "Hold here or drag out of the window to fetch for the Finder"}
       {:else}
         Drag items out of the window to copy them to the Finder
       {/if}

@@ -239,6 +239,28 @@ label {
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
+  /* Fallback: grid centring puts digits ~1px low (measured, WebKit on macOS
+     14); the padding lifts the centre by that much. */
+  box-sizing: border-box;
+  padding-bottom: 2px;
+}
+/* Centre the digit itself. A line box includes space for descenders, which
+   leaves digits about 1px low; trimming the line to the cap height and
+   padding by the rest centres them exactly. Engines without `text-box` or
+   the `cap` unit keep the grid centring above. */
+@supports (text-box: trim-both cap alphabetic) and (padding-top: calc(1cap)) {
+  .bullet {
+    display: inline-block;
+    box-sizing: border-box;
+    text-align: center;
+    text-box: trim-both cap alphabetic;
+    padding-top: calc((18px - 1cap) / 2);
+    padding-bottom: 0;
+  }
+  .bullet.small {
+    padding-top: calc((14px - 1cap) / 2);
+    padding-bottom: 0;
+  }
 }
 .bullet.red { --c: var(--mta-red); }
 .bullet.green { --c: var(--mta-green); }
@@ -253,6 +275,7 @@ label {
   width: 14px;
   height: 14px;
   font-size: 9px;
+  padding-bottom: 1px;
 }
 
 /* Hairline rule */
