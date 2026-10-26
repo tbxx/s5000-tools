@@ -7,10 +7,9 @@ use std::time::Duration;
 
 use nusb::transfer::{Buffer, Bulk, In, Out, TransferError};
 use nusb::{Endpoint, Interface, MaybeFuture};
-use s5k_protocol::transport::{ENDPOINT_IN, ENDPOINT_OUT, PRODUCT_ID, VENDOR_ID};
+use s5k_protocol::transport::{ENDPOINT_IN, ENDPOINT_OUT, PACKET, PRODUCT_ID, VENDOR_ID};
 
-/// Size of each bulk IN transfer. File data arrives in transfers of up to
-/// 4096 bytes; replies are usually 4–64.
+/// The largest read: the sampler sends at most 4096 bytes per transfer.
 const READ_SIZE: usize = 4096;
 
 /// How long a single bulk write may take before it is cancelled.
@@ -176,8 +175,12 @@ impl UsbTransport {
             device.set_configuration(1).wait()?;
         }
         let interface = device.detach_and_claim_interface(0).wait()?;
-        let out = interface.endpoint::<Bulk, Out>(ENDPOINT_OUT)?;
-        let inp = interface.endpoint::<Bulk, In>(ENDPOINT_IN)?;
+        let mut out = interface.endpoint::<Bulk, Out>(ENDPOINT_OUT)?;
+        let mut inp = interface.endpoint::<Bulk, In>(ENDPOINT_IN)?;
+        // A program that quit mid-exchange can leave an endpoint stalled,
+        // which blocks every later transfer until the host clears it.
+        let _ = out.clear_halt().wait();
+        let _ = inp.clear_halt().wait();
         Ok(Self {
             out,
             inp,
@@ -200,14 +203,22 @@ impl s5k_protocol::Transport for UsbTransport {
         completion.status.map_err(transfer_error)
     }
 
-    /// Returns one completed bulk IN transfer. A read that times out leaves
-    /// its transfer queued, so data arriving later is returned by the next
-    /// read rather than lost.
-    fn read(&mut self, timeout: Duration) -> io::Result<Vec<u8>> {
-        if self.inp.pending() == 0 {
-            self.inp.submit(Buffer::new(READ_SIZE));
-        }
+    /// Returns one bulk IN transfer of at most `max_len` bytes. On timeout
+    /// the transfer is cancelled, so nothing stays queued to swallow the
+    /// next reply.
+    fn read(&mut self, max_len: usize, timeout: Duration) -> io::Result<Vec<u8>> {
+        // macOS requires a multiple of the 64-byte packet size. A shorter
+        // reply still ends the transfer, so rounding up is safe.
+        let len = max_len.clamp(1, READ_SIZE).div_ceil(PACKET) * PACKET;
+        self.inp.submit(Buffer::new(len));
         let Some(completion) = self.inp.wait_next_complete(timeout) else {
+            self.inp.cancel_all();
+            // Collect the cancelled transfer (or data that just arrived).
+            while self.inp.pending() > 0 {
+                if self.inp.wait_next_complete(Duration::from_millis(100)).is_none() {
+                    break;
+                }
+            }
             return Err(io::Error::new(
                 io::ErrorKind::TimedOut,
                 "no data from the sampler",

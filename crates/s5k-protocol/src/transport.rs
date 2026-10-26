@@ -8,18 +8,29 @@ pub trait Transport {
     /// Writes one packet to the sampler.
     fn write(&mut self, packet: &[u8]) -> std::io::Result<()>;
 
-    /// Reads one packet (up to 4096 bytes). Returns `ErrorKind::TimedOut` if
-    /// nothing arrives in time.
-    fn read(&mut self, timeout: Duration) -> std::io::Result<Vec<u8>>;
+    /// Reads one bulk transfer of at most `max_len` bytes. Returns
+    /// `ErrorKind::TimedOut` if nothing arrives in time; a timed-out read
+    /// must not leave a transfer pending.
+    ///
+    /// Callers pass the exact length they expect next. The sampler sends no
+    /// zero-length packet after a reply that is a multiple of 64 bytes, so a
+    /// read larger than the reply would not end there and would run on into
+    /// the next reply.
+    fn read(&mut self, max_len: usize, timeout: Duration) -> std::io::Result<Vec<u8>>;
 }
+
+/// Read length for SysEx replies: one USB packet at a time.
+pub const PACKET: usize = 64;
+/// Largest transfer the sampler sends in one piece.
+pub const MAX_TRANSFER: usize = 4096;
 
 impl<T: Transport + ?Sized> Transport for Box<T> {
     fn write(&mut self, packet: &[u8]) -> std::io::Result<()> {
         (**self).write(packet)
     }
 
-    fn read(&mut self, timeout: Duration) -> std::io::Result<Vec<u8>> {
-        (**self).read(timeout)
+    fn read(&mut self, max_len: usize, timeout: Duration) -> std::io::Result<Vec<u8>> {
+        (**self).read(max_len, timeout)
     }
 }
 

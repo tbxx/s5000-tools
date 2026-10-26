@@ -462,9 +462,16 @@ impl Transport for Simulator {
         Ok(())
     }
 
-    fn read(&mut self, _timeout: Duration) -> io::Result<Vec<u8>> {
-        self.out
+    fn read(&mut self, max_len: usize, _timeout: Duration) -> io::Result<Vec<u8>> {
+        let mut packet = self
+            .out
             .pop_front()
-            .ok_or_else(|| io::Error::from(io::ErrorKind::TimedOut))
+            .ok_or_else(|| io::Error::from(io::ErrorKind::TimedOut))?;
+        if packet.len() > max_len {
+            // A shorter read leaves the rest for the next one, as on USB.
+            let rest = packet.split_off(max_len);
+            self.out.push_front(rest);
+        }
+        Ok(packet)
     }
 }

@@ -42,7 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if left.is_zero() {
             return Err("no reply within 2 s".into());
         }
-        let packet = match usb.read(left) {
+        let packet = match usb.read(s5k_protocol::transport::PACKET, left) {
             Ok(packet) => packet,
             Err(e) if e.kind() == ErrorKind::TimedOut => continue,
             Err(e) => return Err(e.into()),

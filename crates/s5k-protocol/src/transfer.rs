@@ -125,6 +125,15 @@ impl Download {
         )
     }
 
+    /// How many bytes to read next: the 4-byte block size, or the rest of
+    /// the current block (at most one 4096-byte transfer).
+    pub fn next_read_len(&self) -> usize {
+        match self.state {
+            DownloadState::Data { remaining } => (remaining as usize).min(crate::transport::MAX_TRANSFER),
+            _ => 4,
+        }
+    }
+
     pub fn received(&self) -> usize {
         self.data.len()
     }
@@ -201,6 +210,15 @@ impl<'a> Upload<'a> {
             },
             request,
         )
+    }
+
+    /// How many bytes to read next: an 8-byte (offset, size) request, a
+    /// 1-byte status, or the 4-byte notice after completion.
+    pub fn next_read_len(&self) -> usize {
+        match self.state {
+            UploadState::Notice => 4,
+            _ => 8,
+        }
     }
 
     /// Highest file offset sent so far, for progress display.

@@ -7,13 +7,15 @@ use s5k_protocol::encode::{self, read_strings, read_u14, read_u28};
 use s5k_protocol::meters::Meters;
 use s5k_protocol::panel::{self, Key, SCREEN_BYTES, Screen};
 use s5k_protocol::sysex::section;
-use s5k_protocol::transport::{HANDSHAKE, KEEP_ALIVE};
+use s5k_protocol::transport::{HANDSHAKE, KEEP_ALIVE, MAX_TRANSFER, PACKET};
 use s5k_protocol::{Assembler, Download, ItemKind, Message, Reply, Status, Step, Transport, Upload};
 
 use crate::error::{Error, Result};
 
 /// How long to wait for a normal reply.
 pub const REPLY_TIMEOUT: Duration = Duration::from_secs(3);
+/// How long to wait for the optional notice after an upload completes.
+const NOTICE_TIMEOUT: Duration = Duration::from_millis(150);
 /// How long to wait during disk operations, which can take minutes.
 pub const DISK_TIMEOUT: Duration = Duration::from_secs(300);
 
@@ -62,6 +64,9 @@ pub struct Sampler<T: Transport> {
     transport: T,
     assembler: Assembler,
     timeout: Duration,
+    /// Set after a timeout or unexpected data: late bytes may still arrive
+    /// and must be cleared before the next command.
+    stale: bool,
 }
 
 fn index_data(index: u16) -> [u8; 2] {
@@ -76,6 +81,7 @@ impl<T: Transport> Sampler<T> {
             transport,
             assembler: Assembler::new(),
             timeout: REPLY_TIMEOUT,
+            stale: true,
         };
         for packet in HANDSHAKE {
             s.transport.write(packet)?;
@@ -89,11 +95,39 @@ impl<T: Transport> Sampler<T> {
         &mut self.transport
     }
 
-    fn read_raw(&mut self, timeout: Duration) -> Result<Vec<u8>> {
-        Ok(self.transport.read(timeout)?)
+    /// Reads one transfer of at most `len` bytes (the exact length expected;
+    /// see `Transport::read`). A timeout marks the line as stale.
+    fn read_raw(&mut self, len: usize, timeout: Duration) -> Result<Vec<u8>> {
+        self.transport.read(len, timeout).map_err(|e| {
+            self.stale = true;
+            e.into()
+        })
+    }
+
+    /// Discards anything left over from an earlier exchange that timed out
+    /// or went wrong, so it cannot be mistaken for the next reply.
+    fn drain(&mut self) {
+        if !std::mem::take(&mut self.stale) {
+            return;
+        }
+        self.assembler = Assembler::new();
+        let deadline = Instant::now() + Duration::from_millis(500);
+        while Instant::now() < deadline
+            && self
+                .transport
+                .read(MAX_TRANSFER, Duration::from_millis(30))
+                .is_ok()
+        {}
+    }
+
+    /// Writes a raw command after clearing any stale input.
+    fn write_raw(&mut self, packet: &[u8]) -> Result<()> {
+        self.drain();
+        Ok(self.transport.write(packet)?)
     }
 
     fn write_message(&mut self, msg: &Message) -> Result<()> {
+        self.drain();
         for packet in msg.usb_packets() {
             self.transport.write(&packet)?;
         }
@@ -114,11 +148,11 @@ impl<T: Transport> Sampler<T> {
             if left.is_zero() {
                 return Err(std::io::Error::from(std::io::ErrorKind::TimedOut).into());
             }
-            let packet = self.read_raw(left)?;
+            let packet = self.read_raw(PACKET, left)?;
             let Some(bytes) = self.assembler.push(&packet) else {
                 continue;
             };
-            let reply = Reply::parse(&bytes)?;
+            let reply = Reply::parse(&bytes).inspect_err(|_| self.stale = true)?;
             if reply.section != msg.section || reply.item != msg.reply_item() {
                 continue; // a stale or unsolicited message
             }
@@ -162,11 +196,11 @@ impl<T: Transport> Sampler<T> {
 
     /// Raw keep-alive. ak.Sys sends one about every 200 ms; call it when idle.
     pub fn keep_alive(&mut self) -> Result<()> {
-        self.transport.write(&[KEEP_ALIVE])?;
-        let reply = self.read_raw(self.timeout)?;
+        self.write_raw(&[KEEP_ALIVE])?;
+        let reply = self.read_raw(4, self.timeout)?;
         if reply.first() == Some(&1) {
-            // A 128-byte block follows (meaning unknown; see docs).
-            let _ = self.read_raw(self.timeout);
+            // A 128-byte block follows once multis exist (meaning unknown).
+            self.read_raw(128, self.timeout)?;
         }
         Ok(())
     }
@@ -361,10 +395,10 @@ impl<T: Transport> Sampler<T> {
     /// Fetches an item from memory as a complete file (`.wav`, `.akp`, `.akm`).
     pub fn get(&mut self, kind: ItemKind, index: u16, progress: Progress) -> Result<Vec<u8>> {
         let (mut download, request) = Download::start(kind, index);
-        self.transport.write(&request)?;
+        self.write_raw(&request)?;
         loop {
-            let packet = self.read_raw(self.timeout)?;
-            match download.feed(&packet)? {
+            let packet = self.read_raw(download.next_read_len(), self.timeout)?;
+            match download.feed(&packet).inspect_err(|_| self.stale = true)? {
                 Step::Read => {}
                 Step::Send(packets) => {
                     for p in packets {
@@ -381,16 +415,24 @@ impl<T: Transport> Sampler<T> {
     /// (`.wav`, `.akp`, `.akm`); the sampler uses it for the item's name.
     pub fn put(&mut self, kind: ItemKind, name: &str, file: &[u8], progress: Progress) -> Result<()> {
         let (mut upload, request) = Upload::start(kind, name, file);
-        self.transport.write(&request)?;
+        self.write_raw(&request)?;
         let total = Some(file.len() as u64);
         loop {
-            let packet = match self.read_raw(self.timeout) {
+            // The file is complete once the sampler says so; the notice that
+            // may follow is optional and often arrives late or not at all, so
+            // wait for it only briefly (a late one is drained before the next
+            // command).
+            let timeout = if upload.finished() {
+                NOTICE_TIMEOUT
+            } else {
+                self.timeout
+            };
+            let packet = match self.read_raw(upload.next_read_len(), timeout) {
                 Ok(p) => p,
-                // The trailing notice is optional for our purposes.
                 Err(e) if upload.finished() && e.is_timeout() => return Ok(()),
                 Err(e) => return Err(e),
             };
-            match upload.feed(&packet)? {
+            match upload.feed(&packet).inspect_err(|_| self.stale = true)? {
                 Step::Read => {}
                 Step::Send(packets) => {
                     for p in packets {
@@ -409,22 +451,22 @@ impl<T: Transport> Sampler<T> {
     // --- Front panel and meters -------------------------------------------
 
     pub fn screen(&mut self) -> Result<Screen> {
-        self.transport.write(&[panel::SCREEN_REQUEST])?;
+        self.write_raw(&[panel::SCREEN_REQUEST])?;
+        // 9600 bytes in transfers of 4096, 4096 and 1408, then the LED byte.
         let mut bits = Vec::with_capacity(SCREEN_BYTES);
         while bits.len() < SCREEN_BYTES {
-            let p = self.read_raw(self.timeout)?;
+            let want = (SCREEN_BYTES - bits.len()).min(MAX_TRANSFER);
+            let p = self.read_raw(want, self.timeout)?;
             if p == s5k_protocol::sysex::BUSY {
                 continue;
             }
             bits.extend_from_slice(&p);
         }
-        let leds = if bits.len() > SCREEN_BYTES {
-            bits[SCREEN_BYTES]
-        } else {
-            self.read_raw(self.timeout)?.first().copied().unwrap_or(0)
-        };
-        Screen::from_reply(&bits[..SCREEN_BYTES], leds)
-            .ok_or_else(|| Error::Protocol("short screen image".into()))
+        let leds = self.read_raw(1, self.timeout)?.first().copied().unwrap_or(0);
+        Screen::from_reply(&bits, leds).ok_or_else(|| {
+            self.stale = true;
+            Error::Protocol("short screen image".into())
+        })
     }
 
     pub fn press(&mut self, key: Key) -> Result<()> {
@@ -446,9 +488,12 @@ impl<T: Transport> Sampler<T> {
     }
 
     pub fn meters(&mut self) -> Result<Meters> {
-        self.transport.write(&[s5k_protocol::meters::REQUEST])?;
-        let reply = self.read_raw(self.timeout)?;
-        Meters::parse(&reply).ok_or_else(|| Error::Protocol("bad meter reply".into()))
+        self.write_raw(&[s5k_protocol::meters::REQUEST])?;
+        let reply = self.read_raw(s5k_protocol::meters::REPLY_LEN, self.timeout)?;
+        Meters::parse(&reply).ok_or_else(|| {
+            self.stale = true;
+            Error::Protocol("bad meter reply".into())
+        })
     }
 
     // --- Parameters by index ---------------------------------------------------
