@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { capture } from "./pointer";
   import { onMount } from "svelte";
   import DataWheel from "./DataWheel.svelte";
   import { api, poll } from "./api";
@@ -11,13 +12,14 @@
   const rows = [...Array(ROWS).keys()];
   const SCALES = [1, 1.5, 2];
 
-  // Key codes: s5k::Key.
+  // Key codes: s5k::Key. In the sampler's left-to-right order; a key's LED is
+  // bit (code - 0x40) of the LED byte.
   const modeKeys = [
+    { code: 0x44, label: "Multi" },
     { code: 0x40, label: "FX" },
-    { code: 0x41, label: "Record" },
     { code: 0x42, label: "Edit Sample" },
     { code: 0x43, label: "Edit Program" },
-    { code: 0x44, label: "Multi" },
+    { code: 0x41, label: "Record" },
     { code: 0x45, label: "Utilities" },
     { code: 0x46, label: "Save" },
     { code: 0x47, label: "Load" },
@@ -114,6 +116,25 @@
     await api.release(code).catch((e) => app.fail(e));
   }
 
+  // A mouse holds a key from pointerdown to pointerup. Keyboard focus (Space,
+  // Enter), VoiceOver and other assistive clicks fire only `click`: tap then.
+  let pointerPressed = false;
+
+  function down(e: PointerEvent, code: number) {
+    pointerPressed = true;
+    press(code);
+    capture(e);
+  }
+
+  async function clicked(code: number) {
+    if (pointerPressed) {
+      pointerPressed = false;
+      return;
+    }
+    await press(code);
+    await release(code);
+  }
+
   function keyDown(e: KeyboardEvent) {
     const code = shortcuts[e.key];
     if (code === undefined || e.repeat || e.metaKey || e.ctrlKey) return;
@@ -133,8 +154,13 @@
         live = false;
         return;
       }
-      draw(await api.screen());
-      live = true;
+      try {
+        draw(await api.screen());
+        live = true;
+      } catch {
+        // Dim the screen rather than show a stale image as if it were live.
+        live = false;
+      }
     });
     return () => {
       stop();
@@ -150,11 +176,9 @@
     class="key {cls}"
     class:down={held.has(k.code)}
     disabled={!app.connected}
-    onpointerdown={(e) => {
-      e.currentTarget.setPointerCapture(e.pointerId);
-      press(k.code);
-    }}
+    onpointerdown={(e) => down(e, k.code)}
     onpointerup={() => release(k.code)}
+    onclick={() => clicked(k.code)}
     onpointercancel={() => release(k.code)}
     onlostpointercapture={() => release(k.code)}>{k.label}</button
   >
@@ -184,11 +208,9 @@
                 aria-label={k.label}
                 title={k.label}
                 disabled={!app.connected}
-                onpointerdown={(e) => {
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  press(k.code);
-                }}
+                onpointerdown={(e) => down(e, k.code)}
                 onpointerup={() => release(k.code)}
+                onclick={() => clicked(k.code)}
                 onpointercancel={() => release(k.code)}
                 onlostpointercapture={() => release(k.code)}
               ></button>
@@ -201,9 +223,9 @@
     </div>
 
     <div class="modes">
-      {#each modeKeys as k, i}
+      {#each modeKeys as k}
         <div class="mode">
-          <span class="led" class:lit={(leds >> i) & 1}></span>
+          <span class="led" class:lit={(leds >> (k.code - 0x40)) & 1}></span>
           {@render key(k)}
         </div>
       {/each}
@@ -323,20 +345,22 @@
     grid-template-columns: 1fr 1fr;
     grid-template-rows: repeat(8, 1fr);
   }
-  .hot .zone {
+  /* No outline or tint: the zones are a plain 2 x 8 grid and don't match the
+     shapes the sampler draws. The F-key beside the row shows the press. */
+  .hot .zone,
+  .hot .zone:hover,
+  .hot .zone:active,
+  .hot .zone:focus,
+  .hot .zone.down {
     border: none;
     padding: 0;
     background: transparent;
+    box-shadow: none;
+    outline: none;
     touch-action: none;
   }
-  .hot.active .zone:hover:not(:disabled) {
-    background: transparent;
-    box-shadow: inset 0 0 0 1px var(--accent);
-  }
-  .hot .zone.down,
-  .hot .zone:active:not(:disabled) {
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
-    box-shadow: inset 0 0 0 1px var(--accent);
+  .hot.active .zone:not(:disabled) {
+    cursor: pointer;
   }
 
   .key {
