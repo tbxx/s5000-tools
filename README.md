@@ -18,6 +18,8 @@ replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
   - **Front panel:** the live screen with clickable soft keys.
   - **Meters.**
   - **Program editor:** live, including draggable envelopes.
+  - **Multi editor:** the parts table (program, MIDI channel, level, pan,
+    output, mute/solo, FX, tuning, key range), live.
 - **`s5k`**, a command-line tool for the same jobs; see
   [docs/cli.md](docs/cli.md).
 
@@ -79,8 +81,8 @@ which you install for the sampler with [Zadig](https://zadig.akeo.ie):
 
 ## Known issues
 
-- **Unconfirmed:** files dragged from the app to the Finder may not be
-  deletable afterwards. If you see this, please say so in an issue.
+- On Windows and Linux, dragging items out of the app fetches them before
+  the drop (on macOS nothing is copied until you drop).
 - Quitting the app in the middle of a transfer or screen update can leave the
   sampler showing "USB Write Timeout". Press OK on the sampler to continue.
 
@@ -118,7 +120,7 @@ release (`.github/workflows/release.yml`).
 
 ## Planned
 
-- Multi and effects editors in the app.
+- An effects editor in the app.
 - Confirming disk operations on hardware.
 - Signed and notarised macOS builds.
 
