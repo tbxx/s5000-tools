@@ -17,9 +17,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-      - name: Linux USB headers
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Linux packages for the app (WebKitGTK)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libudev-dev pkg-config
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      # The app embeds the built frontend, so build it before any cargo step.
+      - name: Frontend
+        working-directory: app
+        run: |
+          npm ci
+          npm run build
       - name: Format
         run: cargo fmt --all --check
       - name: Lint

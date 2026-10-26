@@ -1,0 +1,140 @@
+:root {
+  color-scheme: light dark;
+  --bg: #e6e3dc;
+  --panel: #f4f2ee;
+  --panel-2: #ebe8e1;
+  --line: #c6c1b6;
+  --text: #1f2023;
+  --muted: #6c6a64;
+  --accent: #c8521f;
+  --accent-text: #fff;
+  --select: #2d5c8c;
+  --select-text: #fff;
+  --select-soft: #d5e1ee;
+  --ok: #2f8a4a;
+  --bad: #b3261e;
+  --title-bg: #3b4048;
+  --title-text: #f1efe9;
+  --lcd-bg: #c4d0bd;
+  --lcd-fg: #17231c;
+  --lcd-edge: #8e9a88;
+  --key: #d9d5cc;
+  --key-edge: #a7a196;
+  --knob: #3b4048;
+  --bezel: #3b4048;
+  --track: #cfcac0;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17191c;
+    --panel: #22252a;
+    --panel-2: #1c1f23;
+    --line: #373b42;
+    --text: #e7e5e0;
+    --muted: #9a978f;
+    --accent: #ee7a3c;
+    --select: #3d74ad;
+    --select-soft: #26384b;
+    --ok: #4cbc6c;
+    --bad: #f0645a;
+    --title-bg: #33373e;
+    --lcd-bg: #1b2a22;
+    --lcd-fg: #a6e3b6;
+    --lcd-edge: #2f4237;
+    --key: #33373e;
+    --key-edge: #4a4f57;
+    --knob: #d6d3cc;
+    --bezel: #0d0f11;
+    --track: #3a3e45;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#app {
+  height: 100%;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 10px;
+  cursor: default;
+}
+button:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+button:active:not(:disabled) {
+  background: var(--panel-2);
+}
+button:disabled {
+  opacity: 0.45;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+input,
+select {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* A labelled panel, as on the hardware editor screens. */
+.title {
+  display: inline-block;
+  background: var(--title-bg);
+  color: var(--title-text);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 8px;
+  border-radius: 3px;
+}
+
+.lcd {
+  font-family: var(--mono);
+  background: var(--lcd-bg);
+  color: var(--lcd-fg);
+  border: 1px solid var(--lcd-edge);
+  border-radius: 2px;
+  padding: 1px 5px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--muted);
+}

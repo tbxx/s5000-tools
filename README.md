@@ -7,7 +7,9 @@ replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
 **Status:** the `s5k` command works on real hardware (macOS, S5000 OS 2.14):
 memory listing, transfers with dependencies, rename/delete/create, live
 parameter editing (programs, keygroups, zones, multi parts, samples), screen,
-keys and meters. The editor app is in progress.
+keys and meters. The editor app (`app/`) has transfers, front panel, meters
+and a program editor; it is tested against the built-in simulator and awaits
+a hardware run.
 
 | Crate | Purpose |
 |---|---|
@@ -16,6 +18,7 @@ keys and meters. The editor app is in progress.
 | `s5k-usb` | USB transport (nusb) |
 | `s5k` | client library: memory, transfers, disks, panel, meters |
 | `s5k-cli` | the `s5k` command |
+| `app/` | the editor app (Tauri + Svelte) |
 | `spec/` | parameter catalog generated into the tools |
 
 - [docs/cli.md](docs/cli.md): using the `s5k` command
@@ -27,17 +30,15 @@ keys and meters. The editor app is in progress.
 
 ## Planned
 
-- `s5k`: a command-line tool to list memory and get/put samples, programs
-  and multis (including a program with its samples).
-- An editor app with file transfers, program/multi/effects editing, front
-  panel and meters.
-
-Both are written in Rust, sharing one core library, and the app uses Tauri
-with Svelte.
+- Multi and effects editors in the app; disk browsing (commands are in place,
+  untested without a disk).
+- Release builds for macOS, Windows and Linux.
 
 ## Building
 
 ```
+cargo build --release -p s5k-cli          # the s5k command
+cd app && npm install && npx tauri dev    # the editor app (see app/README.md)
 cargo test
 # optional: check a folder of your own files (nothing leaves your machine)
 S5K_LIBRARY=/path/to/files cargo test --release -p s5k-formats --test library -- --ignored

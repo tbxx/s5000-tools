@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/s5k-formats", "crates/s5k-protocol", "crates/s5k-usb", "crates/s5k", "crates/s5k-cli"]
+members = ["crates/s5k-formats", "crates/s5k-protocol", "crates/s5k-usb", "crates/s5k", "crates/s5k-cli", "app/src-tauri"]
 
 [workspace.package]
 edition = "2024"
