@@ -186,7 +186,7 @@ export const api = {
     invoke<void>("create_program", { sampler, name, keygroups }),
   createMulti: (sampler: Id, name: string, parts: number) => invoke<void>("create_multi", { sampler, name, parts }),
   audition: (sampler: Id, name: string, play: boolean) => invoke<void>("audition", { sampler, name, play }),
-  disks: (sampler: number, rescan = false) => invoke<DiskInfo[]>("disks", { sampler, rescan }),
+  disks: (sampler: number) => invoke<DiskInfo[]>("disks", { sampler }),
   diskList: (sampler: number, disk: number, path: string[], sizes = true) =>
     invoke<Listing>("disk_list", { sampler, disk, path, sizes }),
   diskCreateFolder: (sampler: number, disk: number, path: string[], name: string) =>

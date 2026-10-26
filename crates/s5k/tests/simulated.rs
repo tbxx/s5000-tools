@@ -124,7 +124,6 @@ fn lists_dependencies() {
 fn simulated_disk() {
     use s5k::disk::{LoadMode, SaveType};
     let mut s = Sampler::connect(Simulator::demo()).unwrap();
-    s.refresh_disks().unwrap();
     let disks = s.disks().unwrap();
     assert_eq!(disks.len(), 1);
     assert_eq!(disks[0].name, "SIM DISK");

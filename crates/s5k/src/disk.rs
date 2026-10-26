@@ -99,10 +99,8 @@ pub fn parse_disk_list(mut d: &[u8]) -> Vec<Disk> {
 }
 
 impl<T: Transport> Sampler<T> {
-    /// Rescans the connected disks. Do this after a disk is added or removed.
-    pub fn refresh_disks(&mut self) -> Result<()> {
-        self.disk_request(0x01, &[]).map(drop)
-    }
+    // There is deliberately no "refresh the disk list" (`10 01`): on OS 2.14
+    // it restarts the sampler, and the restart can hang (docs/protocol.md §13).
 
     pub fn disks(&mut self) -> Result<Vec<Disk>> {
         Ok(parse_disk_list(&self.disk_request(0x05, &[])?))

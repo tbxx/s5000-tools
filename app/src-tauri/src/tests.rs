@@ -372,7 +372,7 @@ fn sampler_to_sampler_with_dependencies() {
 fn disk_listing_and_navigation() {
     let samplers = simulators(1);
     let w = samplers.worker(Some(1)).unwrap();
-    let disks = block(w.call(|s| disk::disks(s, true))).unwrap();
+    let disks = block(w.call(disk::disks)).unwrap();
     assert_eq!(disks.len(), 1);
     assert_eq!((disks[0].handle, disks[0].name.as_str()), (5, "SIM DISK"));
 

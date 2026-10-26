@@ -109,8 +109,8 @@
           {#if row.group === "disks" && row.expanded}
             <button
               class="mini"
-              title="Look for disks again"
-              onclick={(e) => (e.stopPropagation(), tree.loadDisks(row.sampler, true))}
+              title="Read the disk list again"
+              onclick={(e) => (e.stopPropagation(), tree.loadDisks(row.sampler))}
               onpointerdown={(e) => e.stopPropagation()}>Rescan</button
             >
           {/if}

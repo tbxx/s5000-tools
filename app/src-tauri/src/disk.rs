@@ -89,14 +89,10 @@ fn navigate(dev: &mut Device, at: Option<&DiskPos>, pos: &DiskPos) -> s5k::Resul
     Ok(())
 }
 
-/// The connected disks. `rescan` asks the sampler to look for new ones
-/// first, which can take a while.
-pub fn disks(session: &mut Session, rescan: bool) -> CmdResult<Vec<DiskInfo>> {
-    let dev = session.device()?;
-    if rescan {
-        dev.refresh_disks().map_err(|e| e.to_string())?;
-        session.disk_at = None;
-    }
+/// The connected disks. Re-reading the list also forgets the remembered
+/// folder, in case a disk was swapped.
+pub fn disks(session: &mut Session) -> CmdResult<Vec<DiskInfo>> {
+    session.disk_at = None;
     let dev = session.device()?;
     let disks = dev.disks().map_err(|e| e.to_string())?;
     Ok(disks

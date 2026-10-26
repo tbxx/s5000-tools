@@ -219,11 +219,8 @@ pub async fn audition(
 // --- Disks ------------------------------------------------------------------------
 
 #[tauri::command]
-pub async fn disks(samplers: State<'_, Samplers>, sampler: u32, rescan: bool) -> CmdResult<Vec<DiskInfo>> {
-    samplers
-        .worker(Some(sampler))?
-        .call(move |s| disk::disks(s, rescan))
-        .await
+pub async fn disks(samplers: State<'_, Samplers>, sampler: u32) -> CmdResult<Vec<DiskInfo>> {
+    samplers.worker(Some(sampler))?.call(disk::disks).await
 }
 
 #[tauri::command]

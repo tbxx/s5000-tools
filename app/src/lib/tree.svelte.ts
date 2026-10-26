@@ -83,10 +83,10 @@ class Tree {
     this.setOpen(row, !row.expanded);
   }
 
-  async loadDisks(sampler: number, rescan = false) {
+  async loadDisks(sampler: number) {
     this.disks.set(sampler, { value: this.disks.get(sampler)?.value ?? null, loading: true, error: null });
     try {
-      this.disks.set(sampler, { value: await api.disks(sampler, rescan), loading: false, error: null });
+      this.disks.set(sampler, { value: await api.disks(sampler), loading: false, error: null });
     } catch (e) {
       this.disks.set(sampler, { value: null, loading: false, error: message(e) });
     }

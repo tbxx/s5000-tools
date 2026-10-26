@@ -11,6 +11,8 @@ mod transfer;
 mod worker;
 
 #[cfg(test)]
+mod hardware_tests;
+#[cfg(test)]
 mod tests;
 
 use serde::Serialize;

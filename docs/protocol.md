@@ -506,17 +506,26 @@ physical sockets still show signal when something is routed to them.
 
 ## 13. Disk tools
 
-From the spec (tables 20 and 21); not yet tested on hardware. Section `10`.
-All operations act on the **selected disk**, which is separate from the disk
-selected on the front panel. Disks are identified by a 14-bit handle. Refresh
-the disk list (`10 01`) after any disk is added or removed, then select a disk
-before anything else.
+From the spec (tables 20 and 21). Section `10`. All operations act on the
+**selected disk**, which is separate from the disk selected on the front
+panel. Disks are identified by a 14-bit handle; select a disk before anything
+else.
+
+**Never send `10 01`.** The spec calls it "refresh the list of disks", but on
+an S5000 with OS 2.14 it restarts the sampler: no reply comes, the boot screen
+appears, and the restart can hang until the power is cycled (twice on
+2026-10-25; once the sampler also showed "USB Write Timeout" first). `10 04`
+and `10 05` list the disks without it.
+
+Tested on hardware so far: `10 04` and `10 05` (an S5000 with only its
+floppy drive reports one disk, handle 1, type 0, named "No disk"). The rest
+is untested.
 
 ### Disks
 
 | Command | Action / reply |
 |---|---|
-| `10 01` | refresh the list of connected disks |
+| `10 01` | ⚠ restarts the sampler on OS 2.14 (spec: refresh the list of disks); never send |
 | `10 02 <handle>` | select a disk |
 | `10 03 <handle>` | check a disk is valid (done or error) |
 | `10 04` | number of disks |

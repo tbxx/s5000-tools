@@ -30,6 +30,10 @@ chunks.
 
 | Offset | Field |
 |---|---|
+| +0 | always 2 |
+| +1 | MIDI program number |
+| +2 | **number of keygroups**; the sampler reads only this many `kgrp` chunks, so a 0 here loads a program with no keygroups |
+| +4 | always 2 |
 | +5 | keygroup crossfade (0/1) |
 
 ### `out `

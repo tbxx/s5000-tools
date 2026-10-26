@@ -11,6 +11,10 @@ pub const NAME_CAPACITY: usize = 20;
 
 pub const PRG: &[Field] = &[f("keygroup_crossfade", 5, U8)];
 
+/// Offset in `prg ` of the keygroup count, which `Program::to_bytes` keeps
+/// equal to the number of `kgrp` chunks.
+const PRG_KEYGROUPS: usize = 2;
+
 pub const OUT: &[Field] = &[
     f("loudness", 1, U8),
     f("amp_mod_1", 2, I8),
@@ -281,7 +285,9 @@ impl Program {
         let mut lfo = [0u8; 14];
         lfo[2] = 50; // rate
         let mut items = vec![
-            Item::Chunk(Chunk::new(b"prg ", vec![1, 0, 0, 0, 0, 0])),
+            // As in every saved program: version 2, MIDI program 0, the
+            // keygroup count (filled in by `to_bytes`), 0, 2, crossfade off.
+            Item::Chunk(Chunk::new(b"prg ", vec![2, 0, 0, 0, 2, 0])),
             Item::Chunk(Chunk::new(b"out ", out.to_vec())),
             Item::Chunk(Chunk::new(b"tune", tune.to_vec())),
             Item::Chunk(Chunk::new(b"lfo ", lfo.to_vec())),
@@ -337,10 +343,17 @@ impl Program {
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
+        let keygroups = self.keygroups().count().min(u8::MAX as usize) as u8;
         let chunks = self
             .items
             .iter()
             .map(|item| match item {
+                // The sampler reads only as many keygroups as `prg ` +2 says.
+                Item::Chunk(chunk) if &chunk.id == b"prg " && chunk.data.len() > 2 => {
+                    let mut chunk = chunk.clone();
+                    chunk.data[PRG_KEYGROUPS] = keygroups;
+                    chunk
+                }
                 Item::Chunk(chunk) => chunk.clone(),
                 Item::Keygroup(kg) => {
                     let mut data = Vec::new();

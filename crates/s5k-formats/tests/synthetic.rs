@@ -22,7 +22,7 @@ fn riff(form: &[u8; 4], size_field: u32, body: &[u8]) -> Vec<u8> {
 /// sampler does.
 fn program_bytes(keygroups: usize, lfo_len: usize) -> Vec<u8> {
     let mut body = Vec::new();
-    body.extend(chunk(b"prg ", &[1, 0, 0, 0, 0, 1]));
+    body.extend(chunk(b"prg ", &[2, 0, keygroups as u8, 0, 2, 1]));
     body.extend(chunk(b"out ", &[1, 85, 0, 0, 0, 0, 0, 25]));
     body.extend(chunk(b"tune", &[1; 24]));
     body.extend(chunk(b"lfo ", &vec![1; lfo_len]));
@@ -209,8 +209,12 @@ fn wav_round_trips() {
 #[test]
 fn blank_items_parse_back() {
     let p = Program::blank(3);
-    let reread = Program::parse(&p.to_bytes()).unwrap();
+    let bytes = p.to_bytes();
+    let reread = Program::parse(&bytes).unwrap();
     assert_eq!(reread.keygroups().count(), 3);
+    // The sampler loads only as many keygroups as `prg ` +2 says.
+    let prg = bytes.windows(4).position(|w| w == b"prg ").unwrap() + 8;
+    assert_eq!(&bytes[prg..prg + 6], &[2, 0, 3, 0, 2, 0]);
     assert_eq!(reread.get(Section::Out, "loudness"), Some(85));
     assert_eq!(reread.get(Section::Lfo2, "clock_division"), Some(0));
     assert!(reread.sample_names().is_empty());
