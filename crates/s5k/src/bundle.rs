@@ -123,3 +123,74 @@ impl<T: Transport> Sampler<T> {
         Ok(missing)
     }
 }
+
+/// Something a program or multi refers to by name, and where it is in
+/// memory (`None` if it is not loaded).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ItemRef {
+    pub name: String,
+    pub index: Option<u16>,
+}
+
+/// A program and the samples its zones use.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProgramDeps {
+    pub program: ItemRef,
+    pub samples: Vec<ItemRef>,
+}
+
+impl<T: Transport> Sampler<T> {
+    /// The samples a program in memory uses. Fetches the program's `.akp`
+    /// (a few KB) to read its zones.
+    pub fn program_dependencies(&mut self, index: u16) -> Result<ProgramDeps> {
+        let program_names = self.program_names()?;
+        let sample_names = self.sample_names()?;
+        self.program_deps(index, &program_names, &sample_names)
+    }
+
+    fn program_deps(
+        &mut self,
+        index: u16,
+        program_names: &[String],
+        sample_names: &[String],
+    ) -> Result<ProgramDeps> {
+        let name = program_names
+            .get(index as usize)
+            .cloned()
+            .ok_or_else(|| Error::Invalid(format!("no program {index}")))?;
+        let program = Program::parse(&self.get(ItemKind::Program, index, &mut |_, _| {})?)?;
+        let samples = program
+            .sample_names()
+            .into_iter()
+            .map(|s| ItemRef {
+                index: find(sample_names, &s),
+                name: s,
+            })
+            .collect();
+        Ok(ProgramDeps {
+            program: ItemRef {
+                name,
+                index: Some(index),
+            },
+            samples,
+        })
+    }
+
+    /// The programs a multi in memory uses, each with its samples. Programs
+    /// the multi names but memory lacks have no samples listed.
+    pub fn multi_dependencies(&mut self, index: u16) -> Result<Vec<ProgramDeps>> {
+        let program_names = self.program_names()?;
+        let sample_names = self.sample_names()?;
+        let mut out = Vec::new();
+        for name in self.multi_part_programs(index)? {
+            match find(&program_names, &name) {
+                Some(i) => out.push(self.program_deps(i, &program_names, &sample_names)?),
+                None => out.push(ProgramDeps {
+                    program: ItemRef { name, index: None },
+                    samples: Vec::new(),
+                }),
+            }
+        }
+        Ok(out)
+    }
+}

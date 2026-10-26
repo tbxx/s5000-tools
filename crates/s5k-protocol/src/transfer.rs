@@ -125,6 +125,21 @@ impl Download {
         )
     }
 
+    /// Getting a file from the current folder of the selected disk
+    /// (`41 <name> 00`, docs/protocol.md §6). Untested on hardware.
+    pub fn start_disk(file_name: &str) -> (Self, Vec<u8>) {
+        let mut request = vec![0x41];
+        request.extend(file_name.bytes().filter(|&b| b != 0));
+        request.push(0);
+        (
+            Self {
+                state: DownloadState::BlockSize,
+                data: Vec::new(),
+            },
+            request,
+        )
+    }
+
     /// How many bytes to read next: the 4-byte block size, or the rest of
     /// the current block (at most one 4096-byte transfer).
     pub fn next_read_len(&self) -> usize {
@@ -201,6 +216,23 @@ impl<'a> Upload<'a> {
         let mut request = vec![kind.put_command()];
         request.extend_from_slice(&(file.len() as u32).to_be_bytes());
         request.extend(name.bytes().filter(|&b| b != 0));
+        request.push(0);
+        (
+            Self {
+                file,
+                state: UploadState::Requests,
+                served: Vec::new(),
+            },
+            request,
+        )
+    }
+
+    /// Sending a file into the current folder of the selected disk
+    /// (`40 <size> <name> 00`). Untested on hardware.
+    pub fn start_disk(file_name: &str, file: &'a [u8]) -> (Self, Vec<u8>) {
+        let mut request = vec![0x40];
+        request.extend_from_slice(&(file.len() as u32).to_be_bytes());
+        request.extend(file_name.bytes().filter(|&b| b != 0));
         request.push(0);
         (
             Self {

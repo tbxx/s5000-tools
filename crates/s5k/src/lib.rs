@@ -17,8 +17,9 @@ pub mod error;
 pub mod params;
 pub mod sampler;
 pub mod sim;
+pub mod sim_disk;
 
-pub use bundle::Bundle;
+pub use bundle::{Bundle, ItemRef, ProgramDeps};
 pub use error::{Error, Result};
 pub use params::{Target, Value, catalog};
 pub use s5k_protocol::meters::Meters;

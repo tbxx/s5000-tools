@@ -394,8 +394,24 @@ impl<T: Transport> Sampler<T> {
 
     /// Fetches an item from memory as a complete file (`.wav`, `.akp`, `.akm`).
     pub fn get(&mut self, kind: ItemKind, index: u16, progress: Progress) -> Result<Vec<u8>> {
-        let (mut download, request) = Download::start(kind, index);
-        self.write_raw(&request)?;
+        let (download, request) = Download::start(kind, index);
+        self.run_download(download, &request, progress)
+    }
+
+    /// Fetches a file from the current folder of the selected disk
+    /// (untested on hardware).
+    pub fn get_from_disk(&mut self, file_name: &str, progress: Progress) -> Result<Vec<u8>> {
+        let (download, request) = Download::start_disk(file_name);
+        self.run_download(download, &request, progress)
+    }
+
+    fn run_download(
+        &mut self,
+        mut download: Download,
+        request: &[u8],
+        progress: Progress,
+    ) -> Result<Vec<u8>> {
+        self.write_raw(request)?;
         loop {
             let packet = self.read_raw(download.next_read_len(), self.timeout)?;
             match download.feed(&packet).inspect_err(|_| self.stale = true)? {
@@ -414,8 +430,25 @@ impl<T: Transport> Sampler<T> {
     /// Sends a file into memory. `name` must carry the extension
     /// (`.wav`, `.akp`, `.akm`); the sampler uses it for the item's name.
     pub fn put(&mut self, kind: ItemKind, name: &str, file: &[u8], progress: Progress) -> Result<()> {
-        let (mut upload, request) = Upload::start(kind, name, file);
-        self.write_raw(&request)?;
+        let (upload, request) = Upload::start(kind, name, file);
+        self.run_upload(upload, &request, file, progress)
+    }
+
+    /// Writes a file into the current folder of the selected disk
+    /// (untested on hardware).
+    pub fn put_to_disk(&mut self, file_name: &str, file: &[u8], progress: Progress) -> Result<()> {
+        let (upload, request) = Upload::start_disk(file_name, file);
+        self.run_upload(upload, &request, file, progress)
+    }
+
+    fn run_upload(
+        &mut self,
+        mut upload: Upload,
+        request: &[u8],
+        file: &[u8],
+        progress: Progress,
+    ) -> Result<()> {
+        self.write_raw(request)?;
         let total = Some(file.len() as u64);
         loop {
             // The file is complete once the sampler says so; the notice that

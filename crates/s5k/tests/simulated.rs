@@ -105,3 +105,66 @@ fn panel_and_meters() {
     assert!(s.meters().unwrap().outputs.iter().all(|&o| o == 0x60));
     s.keep_alive().unwrap();
 }
+
+#[test]
+fn lists_dependencies() {
+    let mut s = connect();
+    let deps = s.program_dependencies(0).unwrap();
+    assert_eq!(deps.program.name, "Drums");
+    let samples: Vec<_> = deps.samples.iter().map(|x| (x.name.as_str(), x.index)).collect();
+    assert_eq!(samples, [("Kick", Some(0)), ("Snare", Some(1))]);
+    s.delete(ItemKind::Sample, 1).unwrap();
+    let multi = s.multi_dependencies(0).unwrap();
+    assert_eq!(multi.len(), 2);
+    assert_eq!(multi[0].samples[1].index, None); // Snare no longer in memory
+    assert_eq!(multi[1].program.name, "Pad");
+}
+
+#[test]
+fn simulated_disk() {
+    use s5k::disk::{LoadMode, SaveType};
+    let mut s = Sampler::connect(Simulator::demo()).unwrap();
+    s.refresh_disks().unwrap();
+    let disks = s.disks().unwrap();
+    assert_eq!(disks.len(), 1);
+    assert_eq!(disks[0].name, "SIM DISK");
+    s.select_disk(disks[0].handle).unwrap();
+    assert_eq!(s.disk_path().unwrap(), "");
+    assert_eq!(s.folders().unwrap(), ["DRUMS", "SYNTHS", "EMPTY"]);
+    assert_eq!(s.files().unwrap(), ["Song.akm"]);
+    assert!(s.disk_free().unwrap() > 0);
+
+    // Load a program with its sample from a folder.
+    s.open_folder("SYNTHS").unwrap();
+    assert_eq!(s.disk_path().unwrap(), "\\SYNTHS");
+    s.load_file("Lead.akp", LoadMode::Normal, true).unwrap();
+    assert!(s.program_names().unwrap().contains(&"Lead".to_string()));
+    assert!(s.sample_names().unwrap().contains(&"Lead A3".to_string()));
+
+    // Disk <-> host transfers.
+    let lead = s.get_from_disk("Lead A3.wav", &mut |_, _| {}).unwrap();
+    assert!(lead.starts_with(b"RIFF"));
+    s.parent_folder().unwrap();
+    s.open_folder("EMPTY").unwrap();
+    s.put_to_disk("Copy.wav", &lead, &mut |_, _| {}).unwrap();
+    assert_eq!(s.files().unwrap(), ["Copy.wav"]);
+    assert_eq!(s.file_size(0).unwrap() as usize, lead.len());
+
+    // Save a multi with everything it uses.
+    s.save_to_disk(0, SaveType::Multi, true, true).unwrap();
+    let mut files = s.files().unwrap();
+    files.sort();
+    assert_eq!(
+        files,
+        [
+            "Copy.wav",
+            "Drums.akp",
+            "Kick.wav",
+            "Pad C3.wav",
+            "Pad.akp",
+            "Snare.wav",
+            "Song.akm"
+        ]
+    );
+    assert!(s.delete_folder("DRUMS").is_err()); // not in this folder
+}

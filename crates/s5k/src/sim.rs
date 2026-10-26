@@ -12,6 +12,8 @@ use s5k_protocol::panel::SCREEN_BYTES;
 use s5k_protocol::sysex::{self, section};
 use s5k_protocol::{Message, Transport};
 
+use crate::sim_disk::{DiskState, Folder, SimDisk};
+
 #[derive(Debug)]
 enum Mode {
     Idle,
@@ -43,6 +45,8 @@ pub struct Simulator {
     pending: Vec<u8>,
     mode: Mode,
     upload_size: usize,
+    /// Disks and the selected disk/folder.
+    pub disk: DiskState,
     /// Every SysEx message received, for tests.
     pub log: Vec<Message>,
 }
@@ -89,6 +93,7 @@ impl Simulator {
             pending: Vec::new(),
             mode: Mode::Idle,
             upload_size: 0,
+            disk: DiskState::default(),
             log: Vec::new(),
         }
     }
@@ -114,7 +119,63 @@ impl Simulator {
         multi.set_part_program(0, "Drums").unwrap();
         multi.set_part_program(1, "Pad").unwrap();
         sim.multis.push(("Song".into(), multi.to_bytes()));
+
+        // A disk holding copies of these and a little more.
+        let file = |name: &str, bytes: &[u8]| (name.to_string(), bytes.to_vec());
+        let drums = Folder {
+            folders: Vec::new(),
+            files: vec![
+                file("Drums.akp", &sim.programs[0].1),
+                file("Kick.wav", &sim.samples[0].1),
+                file("Snare.wav", &sim.samples[1].1),
+            ],
+        };
+        let mut lead = Program::blank(1);
+        lead.keygroup_mut(0)
+            .unwrap()
+            .set_zone_sample(0, "Lead A3")
+            .unwrap();
+        let synths = Folder {
+            folders: Vec::new(),
+            files: vec![
+                file("Lead.akp", &lead.to_bytes()),
+                file("Lead A3.wav", &demo_wav(44100)),
+                file("Pad.akp", &sim.programs[1].1),
+                file("Pad C3.wav", &sim.samples[2].1),
+            ],
+        };
+        let root = Folder {
+            folders: vec![
+                ("DRUMS".into(), drums),
+                ("SYNTHS".into(), synths),
+                ("EMPTY".into(), Folder::default()),
+            ],
+            files: vec![file("Song.akm", &sim.multis[0].1)],
+        };
+        sim.disk.disks.push(SimDisk {
+            handle: 5,
+            name: "SIM DISK".into(),
+            root,
+            capacity: 512 << 20,
+        });
         sim
+    }
+
+    pub(crate) fn items(&self, kind: usize) -> &Vec<(String, Vec<u8>)> {
+        match kind {
+            0 => &self.samples,
+            1 => &self.programs,
+            _ => &self.multis,
+        }
+    }
+
+    /// Puts an item into memory, replacing one with the same name.
+    pub(crate) fn store(&mut self, kind: usize, name: &str, bytes: Vec<u8>) {
+        let list = self.list(kind);
+        match list.iter().position(|e| e.0 == name) {
+            Some(i) => list[i].1 = bytes,
+            None => list.push((name.to_string(), bytes)),
+        }
     }
 
     fn list(&mut self, kind: usize) -> &mut Vec<(String, Vec<u8>)> {
@@ -125,7 +186,7 @@ impl Simulator {
         }
     }
 
-    fn reply(&mut self, msg: &Message, status: u8, data: &[u8]) {
+    pub(crate) fn reply(&mut self, msg: &Message, status: u8, data: &[u8]) {
         let mut out = vec![
             0xF0,
             sysex::AKAI,
@@ -145,11 +206,11 @@ impl Simulator {
         }
     }
 
-    fn done(&mut self, msg: &Message) {
+    pub(crate) fn done(&mut self, msg: &Message) {
         self.reply(msg, 0x44, &[]);
     }
 
-    fn error(&mut self, msg: &Message, code: u16) {
+    pub(crate) fn error(&mut self, msg: &Message, code: u16) {
         self.reply(msg, 0x45, &encode::u14(code));
     }
 
@@ -310,8 +371,10 @@ impl Simulator {
                 self.reply(&msg, 0x52, &encode::string(&name))
             }
             (section::PANEL, _) => self.done(&msg),
-            (section::DISK, 0x04) => self.reply(&msg, 0x52, &[0]),
-            (section::DISK, 0x01) => self.done(&msg),
+            (section::DISK, item) => {
+                let args = args.to_vec();
+                self.handle_disk(&msg, item, &args)
+            }
             _ => self.error(&msg, 0),
         }
     }
@@ -360,7 +423,12 @@ impl Simulator {
                 let data = self.list(k).get(i).map(|e| e.1.clone()).unwrap_or_default();
                 self.next_block(data, 0);
             }
-            Some(&cmd @ (0x20 | 0x22 | 0x24)) if p.len() > 5 => {
+            Some(0x41) => {
+                let name = encode::read_string(&p[1..]).0;
+                let data = self.disk_file(&name);
+                self.next_block(data, 0);
+            }
+            Some(&cmd @ (0x20 | 0x22 | 0x24 | 0x40)) if p.len() > 5 => {
                 let size = u32::from_be_bytes(p[1..5].try_into().unwrap()) as usize;
                 let name = encode::read_string(&p[5..]).0;
                 self.mode = Mode::Upload {
@@ -413,6 +481,13 @@ impl Simulator {
         };
         *offset += *want;
         let remaining = size.saturating_sub(*offset);
+        if remaining == 0 && *kind == 0x40 {
+            let (name, bytes) = (name.clone(), std::mem::take(file));
+            self.out.push_back(vec![0]);
+            self.mode = Mode::Idle;
+            self.disk_store(&name, bytes);
+            return;
+        }
         if remaining == 0 {
             let k = match kind {
                 0x20 => 0,
