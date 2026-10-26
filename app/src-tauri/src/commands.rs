@@ -1,92 +1,75 @@
-//! Tauri commands. Everything that talks to the sampler runs on the worker
-//! thread; file I/O on the Mac side happens there too, next to the transfer.
+//! Tauri commands. Everything that talks to a sampler runs on its worker
+//! thread. Commands that take an optional `sampler` id act on the active
+//! sampler without one (the front panel, meters and program editor).
 
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
 
-use s5k::{ItemKind, Key, Sampler, Simulator, Transport};
-use serde::{Deserialize, Serialize};
+use s5k::{ItemKind, Key};
+use serde::Serialize;
 use tauri::ipc::Response;
 use tauri::{AppHandle, Emitter, State};
 
+use crate::disk::{self, DiskInfo, DiskPos, Listing};
 use crate::params::{self, ParamInfo, ProgramView};
-use crate::transfer::{self, Kind, Progress, TransferResult, index_of};
-use crate::worker::{CmdResult, Device, Worker};
+use crate::samplers::{Origin, SamplerMeta, Samplers, UsbDevice};
+use crate::transfer::{self, Kind, Line, Place, Progress, Request, Source, TransferResult, index_of};
+use crate::worker::{CmdResult, Device};
 
 fn str_err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
-// --- Connection and listing ---------------------------------------------------
-
-#[derive(Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Mode {
-    Usb,
-    Simulator,
+async fn with<R: Send + 'static>(
+    samplers: &Samplers,
+    sampler: Option<u32>,
+    f: impl FnOnce(&mut Device) -> s5k::Result<R> + Send + 'static,
+) -> CmdResult<R> {
+    samplers.worker(sampler)?.with(f).await
 }
 
-#[derive(Serialize)]
-pub struct Info {
-    name: String,
-    os_version: String,
-    wave_free: u8,
-    cpu_free: u8,
-    simulated: bool,
+// --- Samplers --------------------------------------------------------------------
+
+#[tauri::command]
+pub fn samplers(samplers: State<'_, Samplers>) -> Vec<SamplerMeta> {
+    samplers.list()
+}
+
+/// USB samplers on the bus. Listing does not open them.
+#[tauri::command]
+pub fn usb_devices(samplers: State<'_, Samplers>) -> CmdResult<Vec<UsbDevice>> {
+    samplers.usb()
 }
 
 #[tauri::command]
-pub async fn connect(worker: State<'_, Worker>, mode: Mode) -> CmdResult<Info> {
-    worker
-        .call(move |session| {
-            session.device = None;
-            let (transport, simulated): (Box<dyn Transport + Send>, bool) = match mode {
-                Mode::Usb => (
-                    Box::new(s5k_usb::UsbTransport::open_first().map_err(str_err)?),
-                    false,
-                ),
-                Mode::Simulator => (Box::new(Simulator::demo()), true),
-            };
-            let mut device = Sampler::connect(transport).map_err(str_err)?;
-            let info = info_of(&mut device, simulated).map_err(str_err)?;
-            session.device = Some(device);
-            session.simulated = simulated;
-            Ok(info)
-        })
-        .await
+pub async fn add_sampler(samplers: State<'_, Samplers>, origin: Origin) -> CmdResult<SamplerMeta> {
+    samplers.add(origin).await
 }
 
 #[tauri::command]
-pub async fn disconnect(worker: State<'_, Worker>) -> CmdResult<()> {
-    worker
-        .call(|session| {
-            session.device = None;
-            Ok(())
-        })
-        .await
-}
-
-fn info_of(dev: &mut Device, simulated: bool) -> s5k::Result<Info> {
-    let i = dev.info()?;
-    Ok(Info {
-        name: i.name,
-        os_version: format!("{}.{:02}", i.os_version.0, i.os_version.1),
-        wave_free: i.wave_free_percent,
-        cpu_free: i.cpu_free_percent,
-        simulated,
-    })
+pub fn remove_sampler(samplers: State<'_, Samplers>, id: u32) -> CmdResult<()> {
+    samplers.remove(id)
 }
 
 #[tauri::command]
-pub async fn info(worker: State<'_, Worker>) -> CmdResult<Info> {
-    worker
-        .call(|session| {
-            let simulated = session.simulated;
-            let dev = session.device.as_mut().ok_or("not connected")?;
-            info_of(dev, simulated).map_err(str_err)
-        })
-        .await
+pub async fn reconnect_sampler(samplers: State<'_, Samplers>, id: u32) -> CmdResult<SamplerMeta> {
+    samplers.reconnect(id).await
 }
+
+#[tauri::command]
+pub fn set_active(samplers: State<'_, Samplers>, id: u32) -> CmdResult<()> {
+    samplers.set_active(id)
+}
+
+/// The sampler's details with fresh free-memory figures.
+#[tauri::command]
+pub async fn sampler_info(samplers: State<'_, Samplers>, id: Option<u32>) -> CmdResult<SamplerMeta> {
+    let id = id.or(samplers.active()).ok_or("not connected")?;
+    samplers.refresh_info(id).await
+}
+
+// --- Listing memory -----------------------------------------------------------------
 
 #[derive(Serialize)]
 pub struct Sample {
@@ -115,137 +98,232 @@ pub struct Memory {
 }
 
 #[tauri::command]
-pub async fn memory(worker: State<'_, Worker>) -> CmdResult<Memory> {
-    worker
-        .with(|dev| {
-            let m = dev.memory()?;
-            Ok(Memory {
-                samples: m
-                    .samples
-                    .into_iter()
-                    .map(|s| Sample {
-                        bytes: s.frames as u64 * s.channels as u64 * 2,
-                        index: s.index,
-                        name: s.name,
-                        channels: s.channels,
-                        frames: s.frames,
-                        sample_rate: s.sample_rate,
-                    })
-                    .collect(),
-                programs: m
-                    .programs
-                    .into_iter()
-                    .map(|p| Item {
-                        index: p.index,
-                        name: p.name,
-                        count: p.keygroups.into(),
-                    })
-                    .collect(),
-                multis: m
-                    .multis
-                    .into_iter()
-                    .map(|p| Item {
-                        index: p.index,
-                        name: p.name,
-                        count: p.parts,
-                    })
-                    .collect(),
-            })
+pub async fn memory(samplers: State<'_, Samplers>, sampler: Option<u32>) -> CmdResult<Memory> {
+    with(&samplers, sampler, |dev| {
+        let m = dev.memory()?;
+        Ok(Memory {
+            samples: m
+                .samples
+                .into_iter()
+                .map(|s| Sample {
+                    bytes: s.frames as u64 * s.channels as u64 * 2,
+                    index: s.index,
+                    name: s.name,
+                    channels: s.channels,
+                    frames: s.frames,
+                    sample_rate: s.sample_rate,
+                })
+                .collect(),
+            programs: m
+                .programs
+                .into_iter()
+                .map(|p| Item {
+                    index: p.index,
+                    name: p.name,
+                    count: p.keygroups.into(),
+                })
+                .collect(),
+            multis: m
+                .multis
+                .into_iter()
+                .map(|p| Item {
+                    index: p.index,
+                    name: p.name,
+                    count: p.parts,
+                })
+                .collect(),
         })
-        .await
+    })
+    .await
 }
 
 // --- Managing memory ------------------------------------------------------------
 
 #[tauri::command]
-pub async fn delete_items(worker: State<'_, Worker>, kind: Kind, names: Vec<String>) -> CmdResult<()> {
-    worker
-        .with(move |dev| {
-            for name in &names {
-                let i = index_of(dev, kind, name)?;
-                dev.delete(kind.item(), i)?;
-            }
-            Ok(())
-        })
-        .await
+pub async fn delete_items(
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
+    kind: Kind,
+    names: Vec<String>,
+) -> CmdResult<()> {
+    with(&samplers, sampler, move |dev| {
+        for name in &names {
+            let i = index_of(dev, kind, name)?;
+            dev.delete(kind.item(), i)?;
+        }
+        Ok(())
+    })
+    .await
+}
+
+fn check_name(name: &str) -> CmdResult<()> {
+    if !name.is_ascii() || name.is_empty() || name.len() > 20 {
+        return Err("names are 1–20 plain ASCII characters".into());
+    }
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn rename_item(
-    worker: State<'_, Worker>,
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
     kind: Kind,
     name: String,
     new_name: String,
 ) -> CmdResult<()> {
-    if !new_name.is_ascii() || new_name.is_empty() || new_name.len() > 20 {
-        return Err("names are 1–20 plain ASCII characters".into());
-    }
-    worker
-        .with(move |dev| {
-            let i = index_of(dev, kind, &name)?;
-            dev.rename(kind.item(), i, &new_name)
-        })
+    check_name(&new_name)?;
+    with(&samplers, sampler, move |dev| {
+        let i = index_of(dev, kind, &name)?;
+        dev.rename(kind.item(), i, &new_name)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn create_program(
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
+    name: String,
+    keygroups: u8,
+) -> CmdResult<()> {
+    with(&samplers, sampler, move |dev| {
+        dev.create_program(&name, keygroups)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn create_multi(
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
+    name: String,
+    parts: u16,
+) -> CmdResult<()> {
+    with(&samplers, sampler, move |dev| dev.create_multi(&name, parts)).await
+}
+
+#[tauri::command]
+pub async fn audition(
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
+    name: String,
+    play: bool,
+) -> CmdResult<()> {
+    with(&samplers, sampler, move |dev| {
+        let i = index_of(dev, Kind::Sample, &name)?;
+        dev.audition(i, play)
+    })
+    .await
+}
+
+// --- Disks ------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn disks(samplers: State<'_, Samplers>, sampler: u32, rescan: bool) -> CmdResult<Vec<DiskInfo>> {
+    samplers
+        .worker(Some(sampler))?
+        .call(move |s| disk::disks(s, rescan))
         .await
 }
 
 #[tauri::command]
-pub async fn create_program(worker: State<'_, Worker>, name: String, keygroups: u8) -> CmdResult<()> {
-    worker.with(move |dev| dev.create_program(&name, keygroups)).await
+pub async fn disk_list(
+    samplers: State<'_, Samplers>,
+    sampler: u32,
+    disk: u16,
+    path: Vec<String>,
+    sizes: bool,
+) -> CmdResult<Listing> {
+    let pos = DiskPos { disk, path };
+    samplers
+        .worker(Some(sampler))?
+        .call(move |s| disk::list(s, &pos, sizes))
+        .await
 }
 
 #[tauri::command]
-pub async fn create_multi(worker: State<'_, Worker>, name: String, parts: u16) -> CmdResult<()> {
-    worker.with(move |dev| dev.create_multi(&name, parts)).await
+pub async fn disk_create_folder(
+    samplers: State<'_, Samplers>,
+    sampler: u32,
+    disk: u16,
+    path: Vec<String>,
+    name: String,
+) -> CmdResult<()> {
+    check_name(&name)?;
+    let pos = DiskPos { disk, path };
+    samplers
+        .worker(Some(sampler))?
+        .call(move |s| disk::at(s, &pos, |dev| dev.create_folder(&name)))
+        .await
 }
 
+/// Deletes files (names with extension) and empty folders at `path`.
 #[tauri::command]
-pub async fn audition(worker: State<'_, Worker>, name: String, play: bool) -> CmdResult<()> {
-    worker
-        .with(move |dev| {
-            let i = index_of(dev, Kind::Sample, &name)?;
-            dev.audition(i, play)
+pub async fn disk_delete(
+    samplers: State<'_, Samplers>,
+    sampler: u32,
+    disk: u16,
+    path: Vec<String>,
+    files: Vec<String>,
+    folders: Vec<String>,
+) -> CmdResult<()> {
+    let pos = DiskPos { disk, path };
+    samplers
+        .worker(Some(sampler))?
+        .call(move |s| {
+            disk::at(s, &pos, |dev| {
+                for f in &files {
+                    dev.delete_file(f)?;
+                }
+                for f in &folders {
+                    dev.delete_folder(f)?;
+                }
+                Ok(())
+            })
         })
         .await
 }
 
 // --- Transfers --------------------------------------------------------------------
 
+/// What a transfer would copy and what already exists at the destination.
 #[tauri::command]
-#[allow(clippy::too_many_arguments)]
-pub async fn get_item(
-    app: AppHandle,
-    worker: State<'_, Worker>,
-    job: u32,
-    kind: Kind,
-    name: String,
-    folder: PathBuf,
-    deps: bool,
-    replace: bool,
-) -> CmdResult<TransferResult> {
-    let mut progress = Progress::new(job, move |e| drop(app.emit("transfer-progress", e)));
-    worker
-        .call(move |session| {
-            let dev = session.device.as_mut().ok_or("not connected")?;
-            transfer::get(dev, kind, &name, &folder, deps, replace, &mut progress)
-        })
-        .await
+pub async fn plan_transfer(
+    samplers: State<'_, Samplers>,
+    source: Source,
+    dest: Place,
+) -> CmdResult<Vec<Line>> {
+    transfer::plan(&samplers, &source, &dest).await
 }
 
 #[tauri::command]
-pub async fn put_file(
+pub async fn transfer(
     app: AppHandle,
-    worker: State<'_, Worker>,
+    samplers: State<'_, Samplers>,
     job: u32,
-    path: PathBuf,
-    deps: bool,
+    request: Request,
 ) -> CmdResult<TransferResult> {
-    let mut progress = Progress::new(job, move |e| drop(app.emit("transfer-progress", e)));
-    worker
-        .call(move |session| {
-            let dev = session.device.as_mut().ok_or("not connected")?;
-            transfer::put(dev, &path, deps, &mut progress)
-        })
-        .await
+    let progress = Progress::new(job, move |e| drop(app.emit("transfer-progress", e)));
+    transfer::run(&samplers, request, progress).await
+}
+
+/// Where files fetched for a drag to the Finder are put first.
+pub fn drag_root() -> PathBuf {
+    std::env::temp_dir().join("s5000-tools-drag")
+}
+
+/// A new, empty folder for one drag to the Finder.
+#[tauri::command]
+pub fn drag_folder() -> CmdResult<PathBuf> {
+    static NEXT: AtomicU32 = AtomicU32::new(1);
+    let dir = drag_root().join(format!(
+        "{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
+    Ok(dir)
 }
 
 // --- Mac folder and settings -------------------------------------------------------------
@@ -324,9 +402,9 @@ pub fn save_settings(app: AppHandle, settings: serde_json::Value) -> CmdResult<(
 
 /// The screen as 320 × 240 bytes (1 = dark), then the mode-LED byte.
 #[tauri::command]
-pub async fn screen(worker: State<'_, Worker>) -> CmdResult<Response> {
+pub async fn screen(samplers: State<'_, Samplers>, sampler: Option<u32>) -> CmdResult<Response> {
     use s5k::panel_size::{HEIGHT, WIDTH};
-    let screen = worker.with(|dev| dev.screen()).await?;
+    let screen = with(&samplers, sampler, |dev| dev.screen()).await?;
     let mut out = Vec::with_capacity(WIDTH * HEIGHT + 1);
     for y in 0..HEIGHT {
         out.extend((0..WIDTH).map(|x| screen.pixel(x, y) as u8));
@@ -340,20 +418,20 @@ fn key(code: u8) -> CmdResult<Key> {
 }
 
 #[tauri::command]
-pub async fn press(worker: State<'_, Worker>, code: u8) -> CmdResult<()> {
+pub async fn press(samplers: State<'_, Samplers>, sampler: Option<u32>, code: u8) -> CmdResult<()> {
     let k = key(code)?;
-    worker.with(move |dev| dev.press(k)).await
+    with(&samplers, sampler, move |dev| dev.press(k)).await
 }
 
 #[tauri::command]
-pub async fn release(worker: State<'_, Worker>, code: u8) -> CmdResult<()> {
+pub async fn release(samplers: State<'_, Samplers>, sampler: Option<u32>, code: u8) -> CmdResult<()> {
     let k = key(code)?;
-    worker.with(move |dev| dev.release(k)).await
+    with(&samplers, sampler, move |dev| dev.release(k)).await
 }
 
 #[tauri::command]
-pub async fn wheel(worker: State<'_, Worker>, clicks: i8) -> CmdResult<()> {
-    worker.with(move |dev| dev.wheel(clicks)).await
+pub async fn wheel(samplers: State<'_, Samplers>, sampler: Option<u32>, clicks: i8) -> CmdResult<()> {
+    with(&samplers, sampler, move |dev| dev.wheel(clicks)).await
 }
 
 #[derive(Serialize)]
@@ -363,8 +441,8 @@ pub struct Levels {
 }
 
 #[tauri::command]
-pub async fn meters(worker: State<'_, Worker>) -> CmdResult<Levels> {
-    let m = worker.with(|dev| dev.meters()).await?;
+pub async fn meters(samplers: State<'_, Samplers>, sampler: Option<u32>) -> CmdResult<Levels> {
+    let m = with(&samplers, sampler, |dev| dev.meters()).await?;
     Ok(Levels {
         inputs: m.inputs,
         outputs: m.outputs,
@@ -379,16 +457,17 @@ pub fn param_catalog() -> Vec<ParamInfo> {
 }
 
 #[tauri::command]
-pub async fn read_program(worker: State<'_, Worker>, name: String) -> CmdResult<ProgramView> {
-    let bytes = worker
-        .with({
-            let name = name.clone();
-            move |dev| {
-                let i = index_of(dev, Kind::Program, &name)?;
-                dev.get(ItemKind::Program, i, &mut |_, _| {})
-            }
-        })
-        .await?;
+pub async fn read_program(
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
+    name: String,
+) -> CmdResult<ProgramView> {
+    let n = name.clone();
+    let bytes = with(&samplers, sampler, move |dev| {
+        let i = index_of(dev, Kind::Program, &n)?;
+        dev.get(ItemKind::Program, i, &mut |_, _| {})
+    })
+    .await?;
     params::read_program(name, &bytes).map_err(str_err)
 }
 
@@ -426,47 +505,48 @@ fn target(scope: &str, program: u16, keygroup: Option<u8>) -> CmdResult<s5k::Tar
 /// refuses are left out.
 #[tauri::command]
 pub async fn read_live(
-    worker: State<'_, Worker>,
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
     program: String,
     keygroup: u8,
 ) -> CmdResult<params::Values> {
-    worker
-        .with(move |dev| {
-            let p = index_of(dev, Kind::Program, &program)?;
-            let mut values = params::Values::new();
-            for info in params::catalog().into_iter().filter(|i| !i.in_file) {
-                let Ok(param) = param(&info.id) else { continue };
-                if param.get_item.is_none() || matches!(param.encoding.as_deref(), None | Some("string")) {
-                    continue;
-                }
-                let Ok(t) = target(&info.scope, p, Some(keygroup)) else {
-                    continue;
-                };
-                let selectors: Vec<Option<u8>> = match &info.index {
-                    Some((_, lo, hi)) => (*lo..=*hi).map(Some).collect(),
-                    None => vec![None],
-                };
-                for n in selectors {
-                    match dev.read_param(param, t, n.as_slice()) {
-                        Ok(s5k::Value::Number(v)) => {
-                            let key = n.map_or(info.id.clone(), |n| format!("{}#{n}", info.id));
-                            values.insert(key, v);
-                        }
-                        Ok(_) => {}
-                        Err(e) if e.is_timeout() => return Err(e),
-                        Err(_) => {}
+    with(&samplers, sampler, move |dev| {
+        let p = index_of(dev, Kind::Program, &program)?;
+        let mut values = params::Values::new();
+        for info in params::catalog().into_iter().filter(|i| !i.in_file) {
+            let Ok(param) = param(&info.id) else { continue };
+            if param.get_item.is_none() || matches!(param.encoding.as_deref(), None | Some("string")) {
+                continue;
+            }
+            let Ok(t) = target(&info.scope, p, Some(keygroup)) else {
+                continue;
+            };
+            let selectors: Vec<Option<u8>> = match &info.index {
+                Some((_, lo, hi)) => (*lo..=*hi).map(Some).collect(),
+                None => vec![None],
+            };
+            for n in selectors {
+                match dev.read_param(param, t, n.as_slice()) {
+                    Ok(s5k::Value::Number(v)) => {
+                        let key = n.map_or(info.id.clone(), |n| format!("{}#{n}", info.id));
+                        values.insert(key, v);
                     }
+                    Ok(_) => {}
+                    Err(e) if e.is_timeout() => return Err(e),
+                    Err(_) => {}
                 }
             }
-            Ok(values)
-        })
-        .await
+        }
+        Ok(values)
+    })
+    .await
 }
 
 /// Sets one parameter of a program in memory.
 #[tauri::command]
 pub async fn write_param(
-    worker: State<'_, Worker>,
+    samplers: State<'_, Samplers>,
+    sampler: Option<u32>,
     program: String,
     id: String,
     keygroup: Option<u8>,
@@ -474,11 +554,10 @@ pub async fn write_param(
     value: i32,
 ) -> CmdResult<()> {
     let param = param(&id)?;
-    worker
-        .with(move |dev| {
-            let p = index_of(dev, Kind::Program, &program)?;
-            let t = target(&param.scope, p, keygroup).map_err(s5k::Error::Invalid)?;
-            dev.write_param(param, t, selector.as_slice(), &s5k::Value::Number(value))
-        })
-        .await
+    with(&samplers, sampler, move |dev| {
+        let p = index_of(dev, Kind::Program, &program)?;
+        let t = target(&param.scope, p, keygroup).map_err(s5k::Error::Invalid)?;
+        dev.write_param(param, t, selector.as_slice(), &s5k::Value::Number(value))
+    })
+    .await
 }

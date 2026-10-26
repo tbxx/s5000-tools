@@ -4,37 +4,58 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod disk;
 mod params;
+mod samplers;
 mod transfer;
 mod worker;
 
 #[cfg(test)]
 mod tests;
 
+use serde::Serialize;
 use tauri::{Emitter, Manager};
 
+#[derive(Serialize, Clone)]
+struct Lost {
+    id: u32,
+    message: String,
+}
+
 fn main() {
+    // Files fetched for earlier drags to the Finder; the Finder has copied them.
+    let _ = std::fs::remove_dir_all(commands::drag_root());
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_drag::init())
         .setup(|app| {
             let handle = app.handle().clone();
-            app.manage(worker::Worker::spawn(move |e| {
-                drop(handle.emit("disconnected", e))
+            app.manage(samplers::Samplers::new(move |id, message| {
+                drop(handle.emit("sampler-lost", Lost { id, message }))
             }));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::connect,
-            commands::disconnect,
-            commands::info,
+            commands::samplers,
+            commands::usb_devices,
+            commands::add_sampler,
+            commands::remove_sampler,
+            commands::reconnect_sampler,
+            commands::set_active,
+            commands::sampler_info,
             commands::memory,
             commands::delete_items,
             commands::rename_item,
             commands::create_program,
             commands::create_multi,
             commands::audition,
-            commands::get_item,
-            commands::put_file,
+            commands::disks,
+            commands::disk_list,
+            commands::disk_create_folder,
+            commands::disk_delete,
+            commands::plan_transfer,
+            commands::transfer,
+            commands::drag_folder,
             commands::list_folder,
             commands::load_settings,
             commands::save_settings,

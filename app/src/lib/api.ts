@@ -1,15 +1,40 @@
 // Typed wrappers around the Tauri commands in src-tauri/src/commands.rs.
+// Commands with an optional `sampler` act on the active sampler without one.
 import { invoke } from "@tauri-apps/api/core";
 
 export type Kind = "sample" | "program" | "multi";
 export type Mode = "simulator" | "usb";
 
+/** The active sampler, in the shape the other views use. */
 export interface Info {
   name: string;
   os_version: string;
   wave_free: number;
   cpu_free: number;
   simulated: boolean;
+}
+
+export type Origin = { kind: "simulator" } | { kind: "usb"; key: string };
+
+export interface SamplerMeta {
+  id: number;
+  /** "S5000" or "S6000". */
+  product: string;
+  name: string;
+  /** "SIM 2", "USB 1-4": shown when several samplers are connected. */
+  short_id: string;
+  simulated: boolean;
+  os_version: string;
+  wave_free: number;
+  cpu_free: number;
+  status: "connected" | "lost";
+  active: boolean;
+}
+
+export interface UsbDevice {
+  key: string;
+  label: string;
+  connected: number | null;
 }
 
 export interface Sample {
@@ -33,6 +58,24 @@ export interface Memory {
   multis: Item[];
 }
 
+export interface DiskInfo {
+  handle: number;
+  name: string;
+  writable: boolean;
+  kind: string;
+}
+
+export interface DiskFile {
+  name: string;
+  kind: Kind | "other";
+  size: number | null;
+}
+
+export interface Listing {
+  folders: string[];
+  files: DiskFile[];
+}
+
 export interface Entry {
   name: string;
   path: string;
@@ -40,10 +83,44 @@ export interface Entry {
   size: number;
 }
 
+/** Where items live. */
+export type Place =
+  | { at: "memory"; sampler: number }
+  | { at: "mac"; folder: string }
+  | { at: "disk"; sampler: number; disk: number; path: string[] };
+
+/** The item a transfer starts from. */
+export type Source =
+  | { at: "memory"; sampler: number; kind: Kind; name: string }
+  | { at: "mac"; path: string }
+  | { at: "disk"; sampler: number; disk: number; path: string[]; file: string };
+
+export type Deps = { mode: "skip" } | { mode: "all" } | { mode: "only"; files: string[] };
+
+export interface Request {
+  source: Source;
+  dest: Place;
+  deps: Deps;
+  replace: boolean;
+}
+
+/** One line of a transfer plan. */
+export interface Line {
+  kind: Kind;
+  name: string;
+  file: string;
+  main: boolean;
+  parent: string | null;
+  found: boolean;
+  exists: boolean;
+  size: number | null;
+}
+
 export interface TransferResult {
   done: string[];
   skipped: string[];
   missing: string[];
+  paths: string[];
 }
 
 export interface ProgressEvent {
@@ -51,6 +128,8 @@ export interface ProgressEvent {
   item: string;
   done: number;
   total: number | null;
+  step: number;
+  steps: number;
 }
 
 export interface Levels {
@@ -89,20 +168,34 @@ export interface Settings {
   mode?: Mode;
 }
 
+type Id = number | undefined;
+
 export const api = {
-  connect: (mode: Mode) => invoke<Info>("connect", { mode }),
-  disconnect: () => invoke<void>("disconnect"),
-  info: () => invoke<Info>("info"),
-  memory: () => invoke<Memory>("memory"),
-  deleteItems: (kind: Kind, names: string[]) => invoke<void>("delete_items", { kind, names }),
-  rename: (kind: Kind, name: string, newName: string) =>
-    invoke<void>("rename_item", { kind, name, newName }),
-  createProgram: (name: string, keygroups: number) => invoke<void>("create_program", { name, keygroups }),
-  createMulti: (name: string, parts: number) => invoke<void>("create_multi", { name, parts }),
-  audition: (name: string, play: boolean) => invoke<void>("audition", { name, play }),
-  getItem: (job: number, kind: Kind, name: string, folder: string, deps: boolean, replace: boolean) =>
-    invoke<TransferResult>("get_item", { job, kind, name, folder, deps, replace }),
-  putFile: (job: number, path: string, deps: boolean) => invoke<TransferResult>("put_file", { job, path, deps }),
+  samplers: () => invoke<SamplerMeta[]>("samplers"),
+  usbDevices: () => invoke<UsbDevice[]>("usb_devices"),
+  addSampler: (origin: Origin) => invoke<SamplerMeta>("add_sampler", { origin }),
+  removeSampler: (id: number) => invoke<void>("remove_sampler", { id }),
+  reconnectSampler: (id: number) => invoke<SamplerMeta>("reconnect_sampler", { id }),
+  setActive: (id: number) => invoke<void>("set_active", { id }),
+  samplerInfo: (id?: number) => invoke<SamplerMeta>("sampler_info", { id }),
+  memory: (sampler?: number) => invoke<Memory>("memory", { sampler }),
+  deleteItems: (sampler: Id, kind: Kind, names: string[]) => invoke<void>("delete_items", { sampler, kind, names }),
+  rename: (sampler: Id, kind: Kind, name: string, newName: string) =>
+    invoke<void>("rename_item", { sampler, kind, name, newName }),
+  createProgram: (sampler: Id, name: string, keygroups: number) =>
+    invoke<void>("create_program", { sampler, name, keygroups }),
+  createMulti: (sampler: Id, name: string, parts: number) => invoke<void>("create_multi", { sampler, name, parts }),
+  audition: (sampler: Id, name: string, play: boolean) => invoke<void>("audition", { sampler, name, play }),
+  disks: (sampler: number, rescan = false) => invoke<DiskInfo[]>("disks", { sampler, rescan }),
+  diskList: (sampler: number, disk: number, path: string[], sizes = true) =>
+    invoke<Listing>("disk_list", { sampler, disk, path, sizes }),
+  diskCreateFolder: (sampler: number, disk: number, path: string[], name: string) =>
+    invoke<void>("disk_create_folder", { sampler, disk, path, name }),
+  diskDelete: (sampler: number, disk: number, path: string[], files: string[], folders: string[]) =>
+    invoke<void>("disk_delete", { sampler, disk, path, files, folders }),
+  planTransfer: (source: Source, dest: Place) => invoke<Line[]>("plan_transfer", { source, dest }),
+  transfer: (job: number, request: Request) => invoke<TransferResult>("transfer", { job, request }),
+  dragFolder: () => invoke<string>("drag_folder"),
   listFolder: (path: string) => invoke<Entry[]>("list_folder", { path }),
   loadSettings: () => invoke<Settings | null>("load_settings"),
   saveSettings: (settings: Settings) => invoke<void>("save_settings", { settings }),
@@ -129,6 +222,14 @@ export function formatBytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
+
+/** Where a file goes in a sampler's memory, by its extension. */
+export function kindOfFile(name: string): Kind | null {
+  const ext = name.split(".").pop()?.toLowerCase();
+  return ext === "wav" ? "sample" : ext === "akp" ? "program" : ext === "akm" ? "multi" : null;
+}
+
+export const extOf: Record<Kind, string> = { sample: "wav", program: "akp", multi: "akm" };
 
 /** Calls `tick` repeatedly, at most every `ms`, until the returned stop function is called. */
 export function poll(ms: number, tick: () => Promise<void>): () => void {

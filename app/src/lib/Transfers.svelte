@@ -1,82 +1,68 @@
 <script lang="ts">
+  // Transfers: the samplers' memory and disks as a tree on the left, a Mac
+  // folder on the right, the queue below. Drag between any of them, to and
+  // from the Finder, and between samplers; files go where their type
+  // belongs (.wav to Samples, .akp to Programs, .akm to Multis).
   import { onMount, untrack } from "svelte";
+  import { SvelteSet } from "svelte/reactivity";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { api, formatBytes, message, type Entry, type Kind } from "./api";
+  import { startDrag } from "@crabnebula/tauri-plugin-drag";
+  import { api, formatBytes, message, type Entry, type Kind, type Place, type UsbDevice } from "./api";
+  import DepDialog from "./DepDialog.svelte";
+  import SamplerTree from "./SamplerTree.svelte";
   import { dialogs } from "./dialogs.svelte";
-  import { queue } from "./queue.svelte";
+  import { queue, type Job } from "./queue.svelte";
   import { app } from "./state.svelte";
+  import { describePlace, folderKey, tree, type Row } from "./tree.svelte";
+  import { canDrop, transfers, type Transferable } from "./requests.svelte";
 
-  type Side = "sampler" | "mac";
-  interface Row {
-    key: string;
-    kind: Kind;
-    name: string;
-    detail: string;
-    size: number | null;
+  type Pane = "tree" | "mac";
+
+  // --- Tree ------------------------------------------------------------------------
+  const rows = $derived(tree.rows(app.samplers));
+  const sel = new SvelteSet<string>();
+  let anchor = $state<string | null>(null);
+  let focus = $state<string | null>(null);
+  let playing = $state<{ sampler: number; name: string } | null>(null);
+  const selectedRows = $derived(rows.filter((r) => sel.has(r.key)));
+  const selectedItems = $derived(selectedRows.filter((r) => r.source));
+  /** The sampler the tree's buttons act on: the focused row's, or the active one. */
+  const ctxSampler = $derived(rows.find((r) => r.key === focus)?.sampler ?? app.active?.id ?? null);
+  const ctxConnected = $derived(ctxSampler !== null && app.sampler(ctxSampler)?.status === "connected");
+
+  // Drop selection of rows that went away.
+  $effect(() => {
+    const keys = new Set(rows.map((r) => r.key));
+    untrack(() => {
+      for (const k of [...sel]) if (!keys.has(k)) sel.delete(k);
+    });
+  });
+
+  function asTransferable(r: Row): Transferable {
+    return { source: r.source!, kind: r.kind as Kind, size: r.size };
   }
-
-  // --- Sampler side -------------------------------------------------------------
-  const groups = $derived<{ kind: Kind; title: string; rows: Row[] }[]>([
-    {
-      kind: "sample",
-      title: "Samples",
-      rows: app.memory.samples.map((s) => ({
-        key: `sample:${s.name}`,
-        kind: "sample",
-        name: s.name,
-        detail: `${(s.sample_rate / 1000).toFixed(1)} kHz ${s.channels === 2 ? "stereo" : s.channels === 1 ? "mono" : `${s.channels} ch`} · ${(s.frames / (s.sample_rate || 1)).toFixed(2)} s`,
-        size: s.bytes,
-      })),
-    },
-    {
-      kind: "program",
-      title: "Programs",
-      rows: app.memory.programs.map((p) => ({
-        key: `program:${p.name}`,
-        kind: "program",
-        name: p.name,
-        detail: `${p.count} keygroup${p.count === 1 ? "" : "s"}`,
-        size: null,
-      })),
-    },
-    {
-      kind: "multi",
-      title: "Multis",
-      rows: app.memory.multis.map((m) => ({
-        key: `multi:${m.name}`,
-        kind: "multi",
-        name: m.name,
-        detail: `${m.count} parts`,
-        size: null,
-      })),
-    },
-  ]);
-  const samplerRows = $derived(groups.flatMap((g) => g.rows));
-  let samplerSel = $state(new Set<string>());
-  let samplerAnchor = $state<string | null>(null);
-  let playing = $state<string | null>(null);
-  const selectedItems = $derived(samplerRows.filter((r) => samplerSel.has(r.key)));
 
   // --- Mac side --------------------------------------------------------------------
   let entries = $state<Entry[]>([]);
-  let macSel = $state(new Set<string>());
+  const macSel = new SvelteSet<string>();
   let macAnchor = $state<string | null>(null);
   const folder = $derived(app.settings.folder ?? "");
   const selectedFiles = $derived(entries.filter((e) => macSel.has(e.path) && e.kind !== "dir"));
+  const macPlace = $derived<Place | null>(folder ? { at: "mac", folder } : null);
 
   async function loadFolder() {
     if (!folder) return;
     try {
       entries = await api.listFolder(folder);
-      macSel = new Set([...macSel].filter((p) => entries.some((e) => e.path === p)));
+      for (const p of [...macSel]) if (!entries.some((e) => e.path === p)) macSel.delete(p);
     } catch (e) {
       entries = [];
       app.fail(e);
     }
   }
 
-  // Reload when the folder changes or a batch of transfers finishes.
+  // Reload when the folder changes or a transfer finishes.
   $effect(() => {
     void queue.finished;
     void folder;
@@ -89,94 +75,93 @@
   }
 
   function setFolder(path: string) {
-    macSel = new Set();
+    macSel.clear();
     app.save({ folder: path });
   }
 
   function up() {
-    const parent = folder.replace(/\/[^/]+\/?$/, "") || "/";
-    setFolder(parent);
+    setFolder(folder.replace(/\/[^/]+\/?$/, "") || "/");
   }
 
-  // --- Selection -------------------------------------------------------------------
-  function select(
-    e: MouseEvent,
-    key: string,
-    order: string[],
-    sel: Set<string>,
-    anchor: string | null,
-  ): [Set<string>, string | null] {
-    if (e.shiftKey && anchor) {
-      const [a, b] = [order.indexOf(anchor), order.indexOf(key)].sort((x, y) => x - y);
-      return [new Set(order.slice(a, b + 1)), anchor];
+  function macTransferables(files = selectedFiles): Transferable[] {
+    return transfers.fromPaths(
+      files.map((f) => f.path),
+      new Map(files.map((f) => [f.path, f.size])),
+    );
+  }
+
+  // --- Selection ---------------------------------------------------------------------
+  function pick(e: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }, key: string, order: string[], set: SvelteSet<string>, from: string | null): string | null {
+    if (e.shiftKey && from) {
+      const [a, b] = [order.indexOf(from), order.indexOf(key)].sort((x, y) => x - y);
+      set.clear();
+      for (const k of order.slice(a, b + 1)) set.add(k);
+      return from;
     }
     if (e.metaKey || e.ctrlKey) {
-      const next = new Set(sel);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return [next, key];
+      if (set.has(key)) set.delete(key);
+      else set.add(key);
+      return key;
     }
-    return [new Set([key]), key];
+    set.clear();
+    set.add(key);
+    return key;
   }
 
-  function clickSampler(e: MouseEvent, row: Row) {
-    [samplerSel, samplerAnchor] = select(e, row.key, samplerRows.map((r) => r.key), samplerSel, samplerAnchor);
+  const selectable = (r: Row) => r.type === "item" || r.type === "file" || r.type === "folder" || r.type === "disk";
+
+  function clickRow(e: MouseEvent, row: Row) {
+    focus = row.key;
+    if (!selectable(row)) {
+      if (row.type === "group" || row.type === "root") {
+        if (!(e.target as HTMLElement).closest("button")) tree.toggle(row);
+      }
+      return;
+    }
+    anchor = pick(e, row.key, rows.filter(selectable).map((r) => r.key), sel, anchor);
+  }
+
+  function dblRow(row: Row) {
+    if (row.type === "item" && row.source) send([asTransferable(row)], macPlace);
+    else if (row.type === "file" && row.source) send([asTransferable(row)], { at: "memory", sampler: row.sampler });
+    else if (row.expandable) tree.toggle(row);
   }
 
   function clickMac(e: MouseEvent, entry: Entry) {
-    [macSel, macAnchor] = select(e, entry.path, entries.map((x) => x.path), macSel, macAnchor);
+    macAnchor = pick(e, entry.path, entries.map((x) => x.path), macSel, macAnchor);
   }
 
-  // --- Actions ---------------------------------------------------------------------
-  function getSelected(rows = selectedItems) {
-    if (!folder) {
-      app.fail("Choose a folder on the Mac first.");
-      return;
-    }
-    for (const r of rows) {
-      queue.add({
-        direction: "get",
-        label: `${r.name}.${r.kind === "sample" ? "wav" : r.kind === "program" ? "akp" : "akm"}`,
-        kind: r.kind,
-        source: r.name,
-        folder,
-        deps: !!app.settings.deps && r.kind !== "sample",
-        replace: !!app.settings.replace,
-        size: r.size === null ? null : r.size + 44,
-      });
-    }
+  function dblMac(entry: Entry) {
+    if (entry.kind === "dir") return setFolder(entry.path);
+    const to = app.active;
+    if (to) send(macTransferables([entry]), { at: "memory", sampler: to.id });
+    else app.fail("Connect a sampler first.");
   }
 
-  function sendFiles(files: { path: string; name: string; kind: Kind; size: number | null }[]) {
-    if (!app.connected) {
-      app.fail("Connect to a sampler first.");
-      return;
-    }
-    for (const f of files) {
-      queue.add({
-        direction: "put",
-        label: f.name,
-        kind: f.kind,
-        source: f.path,
-        folder: "",
-        deps: !!app.settings.deps && f.kind !== "sample",
-        replace: false,
-        size: f.size,
-      });
-    }
+  // --- Actions -------------------------------------------------------------------------
+  function send(items: Transferable[], dest: Place | null) {
+    if (!dest) return app.fail("Choose a folder on the Mac first.");
+    if (!items.length) return;
+    if (!canDrop(items, dest)) return app.fail(`Already in ${describePlace(dest)}.`);
+    void transfers.send(items, dest);
   }
 
-  const sendSelected = () =>
-    sendFiles(selectedFiles.map((e) => ({ path: e.path, name: e.name, kind: e.kind as Kind, size: e.size })));
+  const getSelected = () => send(selectedItems.map(asTransferable), macPlace);
+  const sendTo = $derived(app.active && app.active.status === "connected" ? app.active : null);
+  function sendSelected() {
+    if (!sendTo) return app.fail("Connect a sampler first.");
+    send(macTransferables(), { at: "memory", sampler: sendTo.id });
+  }
 
   async function play(row: Row) {
+    const name = row.name!;
     try {
-      if (playing) await api.audition(playing, false);
-      if (playing === row.name) {
+      if (playing) await api.audition(playing.sampler, playing.name, false);
+      if (playing?.sampler === row.sampler && playing.name === name) {
         playing = null;
       } else {
-        await api.audition(row.name, true);
-        playing = row.name;
+        await api.audition(row.sampler, name, true);
+        playing = { sampler: row.sampler, name };
       }
     } catch (e) {
       playing = null;
@@ -184,78 +169,199 @@
     }
   }
 
+  function list(names: string[]) {
+    return names.length > 8 ? `${names.slice(0, 8).join(", ")} and ${names.length - 8} more` : names.join(", ");
+  }
+
   async function remove() {
-    const items = selectedItems;
-    if (!items.length) return;
-    const names = items.map((r) => r.name);
-    const list = names.length > 8 ? `${names.slice(0, 8).join(", ")} and ${names.length - 8} more` : names.join(", ");
+    const items = selectedRows.filter((r) => r.type === "item");
+    const files = selectedRows.filter((r) => r.type === "file" || r.type === "folder");
+    if (!items.length && !files.length) return;
+    const names = [...items, ...files].map((r) => r.label);
+    const where = items.length && files.length ? "memory and disk" : items.length ? "memory" : "the disk";
     const ok = await dialogs.confirm(
-      `Delete ${items.length} item${items.length === 1 ? "" : "s"} from memory?`,
-      `${list}\n\nThis removes them from the sampler's memory. It cannot be undone.`,
+      `Delete ${names.length} item${names.length === 1 ? "" : "s"}?`,
+      `${list(names)}\n\nThis removes them from the sampler's ${where}. It cannot be undone.${files.some((f) => f.type === "folder") ? "\nOnly empty folders can be deleted." : ""}`,
       "Delete",
       true,
     );
     if (!ok) return;
     try {
-      for (const kind of ["multi", "program", "sample"] as Kind[]) {
-        const n = items.filter((r) => r.kind === kind).map((r) => r.name);
-        if (n.length) await api.deleteItems(kind, n);
+      const samplers = new Set(items.map((r) => r.sampler));
+      for (const s of samplers) {
+        for (const kind of ["multi", "program", "sample"] as Kind[]) {
+          const n = items.filter((r) => r.sampler === s && r.kind === kind).map((r) => r.name!);
+          if (n.length) await api.deleteItems(s, kind, n);
+        }
       }
-      app.say(`Deleted ${list}`);
-      samplerSel = new Set();
+      // Disk files and folders, grouped by the folder they are in.
+      const groups = new Map<string, Row[]>();
+      for (const f of files) {
+        const at = f.type === "folder" ? f.path!.slice(0, -1) : f.path!;
+        const k = folderKey(f.sampler, f.disk!, at);
+        groups.set(k, [...(groups.get(k) ?? []), f]);
+      }
+      for (const g of groups.values()) {
+        const f = g[0];
+        const at = f.type === "folder" ? f.path!.slice(0, -1) : f.path!;
+        await api.diskDelete(
+          f.sampler,
+          f.disk!,
+          at,
+          g.filter((x) => x.type === "file").map((x) => x.name!),
+          g.filter((x) => x.type === "folder").map((x) => x.name!),
+        );
+        tree.reload({ at: "disk", sampler: f.sampler, disk: f.disk!, path: at });
+        transfers.invalidate(f.sampler);
+      }
+      app.say(`Deleted ${list(names)}`);
+      sel.clear();
+      for (const s of samplers) {
+        transfers.invalidate(s);
+        await app.refresh(s);
+      }
     } catch (e) {
       app.fail(e);
     }
-    await app.refresh();
   }
 
   async function rename() {
-    const [row] = selectedItems;
-    if (!row || selectedItems.length !== 1) return;
-    const v = await dialogs.ask(`Rename ${row.kind}`, [{ label: "Name", value: row.name }], "Rename");
+    const [row] = selectedRows;
+    if (!row || selectedRows.length !== 1 || row.type !== "item") return;
+    const v = await dialogs.ask(`Rename ${row.kind}`, [{ label: "Name", value: row.name! }], "Rename");
     if (!v || !v[0].trim() || v[0] === row.name) return;
-    const confirmed = await dialogs.confirm(`Rename "${row.name}" to "${v[0]}"?`, "", "Rename");
-    if (!confirmed) return;
     try {
-      await api.rename(row.kind, row.name, v[0]);
-      samplerSel = new Set([`${row.kind}:${v[0]}`]);
+      await api.rename(row.sampler, row.kind as Kind, row.name!, v[0]);
       app.say(`Renamed ${row.name} to ${v[0]}`);
+      transfers.invalidate(row.sampler);
     } catch (e) {
       app.fail(e);
     }
-    await app.refresh();
+    await app.refresh(row.sampler);
   }
 
   async function newProgram() {
-    const v = await dialogs.ask("New program", [
+    if (ctxSampler === null) return;
+    const v = await dialogs.ask(`New program in ${app.label(ctxSampler)}`, [
       { label: "Name", value: "New Program" },
       { label: "Keygroups", value: "1" },
     ], "Create");
     if (!v) return;
     const kgs = Math.max(1, Math.min(99, parseInt(v[1]) || 1));
-    await api.createProgram(v[0], kgs).catch((e) => app.fail(e));
-    await app.refresh();
+    await api.createProgram(ctxSampler, v[0], kgs).catch((e) => app.fail(e));
+    await app.refresh(ctxSampler);
   }
 
   async function newMulti() {
-    const v = await dialogs.ask("New multi", [
+    if (ctxSampler === null) return;
+    const v = await dialogs.ask(`New multi in ${app.label(ctxSampler)}`, [
       { label: "Name", value: "New Multi" },
       { label: "Parts", value: "32", options: ["32", "64", "128"] },
     ], "Create");
     if (!v) return;
-    await api.createMulti(v[0], parseInt(v[1])).catch((e) => app.fail(e));
-    await app.refresh();
+    await api.createMulti(ctxSampler, v[0], parseInt(v[1])).catch((e) => app.fail(e));
+    await app.refresh(ctxSampler);
   }
 
-  function samplerKey(e: KeyboardEvent) {
-    if (e.key === "Backspace" || e.key === "Delete") remove();
+  /** The disk folder the focused row is in or is. */
+  const ctxFolder = $derived.by(() => {
+    const r = rows.find((x) => x.key === focus);
+    return r?.drop?.at === "disk" ? r.drop : null;
+  });
+
+  async function newFolder() {
+    const f = ctxFolder;
+    if (!f || f.at !== "disk") return;
+    const v = await dialogs.ask(`New folder in ${describePlace(f)}`, [{ label: "Name", value: "NEW FOLDER" }], "Create");
+    if (!v || !v[0].trim()) return;
+    try {
+      await api.diskCreateFolder(f.sampler, f.disk, f.path, v[0].trim());
+      tree.reload(f);
+    } catch (e) {
+      app.fail(e);
+    }
+  }
+
+  async function refresh() {
+    for (const s of app.samplers) {
+      if (s.status !== "connected") continue;
+      await app.refresh(s.id);
+      if (tree.disks.has(s.id)) await tree.loadDisks(s.id);
+    }
+    for (const k of [...tree.folders.keys()]) {
+      const [sampler, , disk, path] = k.split("|");
+      void tree.loadFolder(Number(sampler), Number(disk), path ? path.split("/") : []);
+    }
+  }
+
+  // --- Adding samplers ---------------------------------------------------------------------
+  let addOpen = $state(false);
+  let usb = $state<UsbDevice[] | null>(null);
+  let usbError = $state<string | null>(null);
+
+  async function openAdd() {
+    addOpen = !addOpen;
+    if (!addOpen) return;
+    usb = null;
+    usbError = null;
+    try {
+      usb = await api.usbDevices();
+    } catch (e) {
+      usbError = message(e);
+    }
+  }
+
+  async function add(origin: { kind: "simulator" } | { kind: "usb"; key: string }) {
+    addOpen = false;
+    const s = await app.add(origin);
+    if (s) focus = `${s.id}|root`;
+  }
+
+  // --- Keys --------------------------------------------------------------------------------
+  function scrollTo(key: string) {
+    queueMicrotask(() => document.querySelector(`[data-key="${CSS.escape(key)}"]`)?.scrollIntoView({ block: "nearest" }));
+  }
+
+  function treeKey(e: KeyboardEvent) {
+    const i = rows.findIndex((r) => r.key === focus);
+    const row = rows[i];
+    const move = (j: number) => {
+      const r = rows[Math.max(0, Math.min(rows.length - 1, j))];
+      if (!r) return;
+      focus = r.key;
+      if (selectable(r)) {
+        if (e.shiftKey && anchor) pick(e, r.key, rows.filter(selectable).map((x) => x.key), sel, anchor);
+        else {
+          sel.clear();
+          sel.add(r.key);
+          anchor = r.key;
+        }
+      }
+      scrollTo(r.key);
+    };
+    if (e.key === "ArrowDown") (e.preventDefault(), move(i + 1));
+    else if (e.key === "ArrowUp") (e.preventDefault(), move(i < 0 ? 0 : i - 1));
+    else if (e.key === "ArrowRight" && row) {
+      e.preventDefault();
+      if (row.expandable && !row.expanded) tree.setOpen(row, true);
+      else move(i + 1);
+    } else if (e.key === "ArrowLeft" && row) {
+      e.preventDefault();
+      if (row.expandable && row.expanded) tree.setOpen(row, false);
+      else {
+        let j = i - 1;
+        while (j >= 0 && rows[j].depth >= row.depth) j--;
+        if (j >= 0) move(j);
+      }
+    } else if (e.key === "Backspace" || e.key === "Delete") remove();
     else if (e.key === "Enter") getSelected();
     else if ((e.metaKey || e.ctrlKey) && e.key === "a") {
       e.preventDefault();
-      samplerSel = new Set(samplerRows.map((r) => r.key));
-    } else if (e.key === " " && selectedItems.length === 1 && selectedItems[0].kind === "sample") {
+      sel.clear();
+      for (const r of rows) if (r.source) sel.add(r.key);
+    } else if (e.key === " " && selectedRows.length === 1 && selectedRows[0].kind === "sample" && selectedRows[0].type === "item") {
       e.preventDefault();
-      play(selectedItems[0]);
+      play(selectedRows[0]);
     }
   }
 
@@ -263,51 +369,143 @@
     if (e.key === "Enter") sendSelected();
     else if ((e.metaKey || e.ctrlKey) && e.key === "a") {
       e.preventDefault();
-      macSel = new Set(entries.filter((x) => x.kind !== "dir").map((x) => x.path));
+      macSel.clear();
+      for (const x of entries) if (x.kind !== "dir") macSel.add(x.path);
     }
   }
 
-  // --- Dragging between the panes (pointer based, so it works in every webview) ---
-  let drag = $state<{ from: Side; label: string; x: number; y: number; over: Side | null } | null>(null);
-  let pressed: { from: Side; x: number; y: number } | null = null;
+  // --- Dragging (pointer based: between panes, samplers and folders) --------------------
+  interface Drag {
+    id: number;
+    from: Pane;
+    items: Transferable[];
+    label: string;
+    x: number;
+    y: number;
+    target: Place | null;
+    /** Over the Finder zone or outside the window. */
+    out: boolean;
+    finder: "idle" | "fetching" | "error";
+  }
+  let drag = $state<Drag | null>(null);
+  let pressed: { from: Pane; x: number; y: number } | null = null;
+  let dragIds = 0;
 
-  function sideAt(x: number, y: number): Side | null {
+  function placeAt(x: number, y: number): Place | null {
     const el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-drop]");
-    return (el?.dataset.drop as Side) ?? null;
+    return el?.dataset.drop ? (JSON.parse(el.dataset.drop) as Place) : null;
   }
 
-  function pointerDown(e: PointerEvent, from: Side, key: string) {
-    if (e.button !== 0 || e.shiftKey || e.metaKey || e.ctrlKey) return;
-    if (from === "sampler" && !samplerSel.has(key)) [samplerSel, samplerAnchor] = [new Set([key]), key];
-    if (from === "mac" && !macSel.has(key)) [macSel, macAnchor] = [new Set([key]), key];
-    pressed = { from, x: e.clientX, y: e.clientY };
+  function overFinderZone(x: number, y: number) {
+    return !!document.elementFromPoint(x, y)?.closest("[data-finder]");
+  }
+
+  function rowDown(e: PointerEvent, row: Row) {
+    if (e.button !== 0 || e.shiftKey || e.metaKey || e.ctrlKey || !row.source) return;
+    if (!sel.has(row.key)) {
+      sel.clear();
+      sel.add(row.key);
+      anchor = row.key;
+    }
+    focus = row.key;
+    pressed = { from: "tree", x: e.clientX, y: e.clientY };
+  }
+
+  function macDown(e: PointerEvent, entry: Entry) {
+    if (e.button !== 0 || e.shiftKey || e.metaKey || e.ctrlKey || entry.kind === "dir") return;
+    if (!macSel.has(entry.path)) {
+      macSel.clear();
+      macSel.add(entry.path);
+      macAnchor = entry.path;
+    }
+    pressed = { from: "mac", x: e.clientX, y: e.clientY };
   }
 
   function pointerMove(e: PointerEvent) {
     if (!pressed) return;
     if (!drag) {
       if (Math.hypot(e.clientX - pressed.x, e.clientY - pressed.y) < 5) return;
-      const n = pressed.from === "sampler" ? selectedItems.length : selectedFiles.length;
-      if (!n) return;
-      const first = pressed.from === "sampler" ? selectedItems[0].name : selectedFiles[0].name;
-      drag = { from: pressed.from, label: n === 1 ? first : `${n} items`, x: 0, y: 0, over: null };
+      const items = pressed.from === "tree" ? selectedItems.map(asTransferable) : macTransferables();
+      if (!items.length) return;
+      const first = pressed.from === "tree" ? selectedItems[0].label : selectedFiles[0].name;
+      drag = { id: ++dragIds, from: pressed.from, items, label: items.length === 1 ? first : `${items.length} items`, x: 0, y: 0, target: null, out: false, finder: "idle" };
     }
     drag.x = e.clientX;
     drag.y = e.clientY;
-    drag.over = sideAt(e.clientX, e.clientY);
+    const outside = e.clientX <= 0 || e.clientY <= 0 || e.clientX >= innerWidth - 1 || e.clientY >= innerHeight - 1;
+    drag.out = outside || overFinderZone(e.clientX, e.clientY);
+    drag.target = drag.out ? null : placeAt(e.clientX, e.clientY);
+    if (drag.out && drag.finder === "idle") void toFinder(drag);
   }
 
   function pointerUp() {
-    if (drag && drag.over && drag.over !== drag.from) {
-      if (drag.from === "sampler") getSelected();
-      else sendSelected();
-    }
+    if (drag && !drag.out && drag.target && canDrop(drag.items, drag.target)) void transfers.send(drag.items, drag.target);
+    else if (drag?.finder === "fetching") app.say(`Fetching ${drag.label} for the Finder; when it is ready, drag it out again.`);
     drag = null;
     pressed = null;
   }
 
-  // --- Files dropped from the Finder ------------------------------------------------
-  let finderOver = $state<Side | null>(null);
+  /** A small sign as the drag image. */
+  function dragIcon(label: string, n: number): string {
+    const c = document.createElement("canvas");
+    const scale = 2;
+    const ctx = c.getContext("2d");
+    if (!ctx) return "";
+    ctx.font = `700 ${12 * scale}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    const text = n > 1 ? `${n} files` : label;
+    c.width = Math.min(260 * scale, ctx.measureText(text).width + 20 * scale);
+    c.height = 22 * scale;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = "#fff";
+    ctx.font = `700 ${12 * scale}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 10 * scale, c.height / 2, c.width - 20 * scale);
+    return c.toDataURL("image/png");
+  }
+
+  /** Leaves the window: hand the files to a native drag, fetching them first if needed. */
+  async function toFinder(d: Drag) {
+    let paths = transfers.ready(d.items);
+    if (!paths) {
+      d.finder = "fetching";
+      try {
+        paths = await transfers.stage(d.items);
+      } catch (e) {
+        if (drag?.id === d.id) drag.finder = "error";
+        if (message(e) !== "cancelled") app.fail(e);
+        return;
+      }
+      // Released meanwhile: the files are ready for the next drag.
+      if (drag?.id !== d.id) {
+        app.say(`${d.label} is ready: drag it to the Finder again.`);
+        return;
+      }
+    }
+    const n = paths.length;
+    const icon = dragIcon(d.label, n);
+    drag = null;
+    pressed = null;
+    try {
+      await startDrag({ item: paths, icon }, ({ result }) => {
+        if (result === "Dropped") app.say(`Copied ${n} file${n === 1 ? "" : "s"} to the Finder`);
+      });
+    } catch (e) {
+      app.fail(e);
+    }
+  }
+
+  /** Fetches for the Finder: the jobs of the current drag. */
+  const finderJobs = $derived(queue.jobs.filter((j) => j.forFinder && (j.status === "running" || j.status === "queued")));
+  const finderWaiting = $derived(finderJobs.length > 0 && finderJobs.every((j) => j.status === "queued"));
+  const finderPct = $derived.by(() => {
+    const total = finderJobs.reduce((n, j) => n + (j.total ?? 0), 0);
+    const done = finderJobs.reduce((n, j) => n + Math.min(j.done, j.total ?? j.done), 0);
+    return total ? Math.round((100 * done) / total) : null;
+  });
+
+  // --- Files dropped from the Finder ----------------------------------------------------------
+  let finderOver = $state<Place | null>(null);
 
   onMount(() => {
     const unlisten = getCurrentWebview().onDragDropEvent(({ payload }) => {
@@ -316,138 +514,150 @@
         return;
       }
       const r = window.devicePixelRatio || 1;
-      const side = sideAt(payload.position.x / r, payload.position.y / r);
+      const place = placeAt(payload.position.x / r, payload.position.y / r);
       if (payload.type !== "drop") {
-        finderOver = side;
+        finderOver = place;
         return;
       }
       finderOver = null;
-      if (side === "sampler") {
-        const files = payload.paths
-          .map((path) => {
-            const name = path.split("/").pop() ?? path;
-            const ext = name.split(".").pop()?.toLowerCase();
-            const kind: Kind | null = ext === "wav" ? "sample" : ext === "akp" ? "program" : ext === "akm" ? "multi" : null;
-            return kind && { path, name, kind, size: null };
-          })
-          .filter((f) => f !== null);
-        if (files.length) sendFiles(files);
-        else app.fail("Only .wav, .akp and .akm files can be sent to the sampler.");
-      } else if (side === "mac" && payload.paths.length === 1) {
-        api
-          .listFolder(payload.paths[0])
-          .then(() => setFolder(payload.paths[0]))
-          .catch(() => app.fail("Drop a folder here to open it."));
+      if (!place) return;
+      if (place.at === "mac") {
+        if (payload.paths.length === 1)
+          api
+            .listFolder(payload.paths[0])
+            .then(() => setFolder(payload.paths[0]))
+            .catch(() => app.fail("Drop a folder here to open it, or drop files on a sampler."));
+        return;
       }
+      const items = transfers.fromPaths(payload.paths);
+      if (items.length) send(items, place);
     });
     return () => {
       unlisten.then((f) => f());
-      if (playing) api.audition(playing, false).catch(() => {});
+      if (playing) api.audition(playing.sampler, playing.name, false).catch(() => {});
+      if (transfers.dialog) transfers.answer("cancel");
     };
   });
 
-  const kindIcon: Record<string, string> = { dir: "▸", sample: "∿", program: "P", multi: "M" };
+  const target = $derived(drag ? (canDrop(drag.items, drag.target) ? drag.target : null) : finderOver);
   const busy = $derived(queue.running);
+
+  function jobState(job: Job) {
+    if (job.status === "queued") return "queued";
+    if (job.status === "running") {
+      const step = job.steps > 1 ? `${job.step}/${job.steps} ` : "";
+      const item = job.item && job.item !== job.label ? `${job.item} ` : "";
+      return `${step}${item}${job.done ? formatBytes(job.done) : ""}`;
+    }
+    if (job.status === "error") return job.note;
+    return job.status + (job.note ? ` · ${job.note}` : "");
+  }
+
+  function barWidth(job: Job) {
+    if (job.status === "done" || job.status === "error") return "100%";
+    if (job.total) return `${Math.min(100, (100 * job.done) / job.total)}%`;
+    if (job.steps) return `${(100 * Math.max(0, job.step - 1)) / job.steps}%`;
+    return job.status === "running" ? "100%" : "0%";
+  }
 </script>
 
-<svelte:window onpointermove={pointerMove} onpointerup={pointerUp} />
+<svelte:window onpointermove={pointerMove} onpointerup={pointerUp} onpointercancel={pointerUp} />
 
 <div class="transfers" class:dragging={drag}>
-  <section
-    class="pane"
-    data-drop="sampler"
-    class:target={(drag && drag.from === "mac" && drag.over === "sampler") || finderOver === "sampler"}
-  >
-    <div class="head">
-      <span class="title">Sampler memory</span>
+  <section class="pane">
+    <h3 class="sign">
+      <span>Samplers</span>
       <span class="tools">
-        <button onclick={newProgram} disabled={!app.connected}>New program</button>
-        <button onclick={newMulti} disabled={!app.connected}>New multi</button>
-        <button onclick={rename} disabled={selectedItems.length !== 1 || busy}>Rename</button>
-        <button onclick={remove} disabled={!selectedItems.length || busy}>Delete</button>
-        <button onclick={() => app.refresh()} disabled={!app.connected} title="Reload the memory list">↻</button>
-      </span>
-    </div>
-    <div class="list" role="listbox" aria-multiselectable="true" tabindex="0" onkeydown={samplerKey}>
-      {#if !app.connected}
-        <p class="empty">Not connected. Choose Simulator or Real sampler at the top right.</p>
-      {:else}
-        {#each groups as g}
-          <div class="group">{g.title} <span class="muted">{g.rows.length}</span></div>
-          {#each g.rows as row (row.key)}
-            <!-- svelte-ignore a11y_click_events_have_key_events (the listbox handles keys) -->
-            <div
-              class="row"
-              role="option"
-              tabindex="-1"
-              aria-selected={samplerSel.has(row.key)}
-              class:selected={samplerSel.has(row.key)}
-              onclick={(e) => clickSampler(e, row)}
-              ondblclick={() => getSelected([row])}
-              onpointerdown={(e) => pointerDown(e, "sampler", row.key)}
-            >
-              <span class="name">{row.name}</span>
-              <span class="detail">{row.detail}</span>
-              <span class="size">{row.size === null ? "" : formatBytes(row.size)}</span>
-              <span class="act">
-                {#if row.kind === "sample"}
-                  <button
-                    class="play"
-                    class:on={playing === row.name}
-                    title={playing === row.name ? "Stop" : "Play on the sampler"}
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      play(row);
-                    }}
-                    onpointerdown={(e) => e.stopPropagation()}>{playing === row.name ? "■" : "▶"}</button
-                  >
-                {/if}
-              </span>
+        <span class="add">
+          <button onclick={openAdd} disabled={app.connecting} title="Connect a USB sampler or a simulator" aria-expanded={addOpen}>
+            {app.connecting ? "Connecting…" : "+ Add"}
+          </button>
+          {#if addOpen}
+            <div class="menu" role="menu">
+              <button role="menuitem" onclick={() => add({ kind: "simulator" })}>Simulator</button>
+              {#if usbError}
+                <p class="note error">{usbError}</p>
+              {:else if !usb}
+                <p class="note">Looking for USB samplers…</p>
+              {:else if !usb.length}
+                <p class="note">No S5000/S6000 on USB</p>
+              {:else}
+                {#each usb as d (d.key)}
+                  <button role="menuitem" disabled={d.connected !== null} onclick={() => add({ kind: "usb", key: d.key })}>
+                    {d.label}{d.connected !== null ? " · connected" : ""}
+                  </button>
+                {/each}
+              {/if}
             </div>
-          {:else}
-            <div class="none">none</div>
-          {/each}
-        {/each}
-      {/if}
-    </div>
+          {/if}
+        </span>
+        <button onclick={newProgram} disabled={!ctxConnected}>New program</button>
+        <button onclick={newMulti} disabled={!ctxConnected}>New multi</button>
+        <button onclick={newFolder} disabled={!ctxFolder}>New folder</button>
+        <button onclick={rename} disabled={selectedRows.length !== 1 || selectedRows[0].type !== "item" || busy}>Rename</button>
+        <button onclick={remove} disabled={!selectedRows.some((r) => r.type !== "disk") || busy}>Delete</button>
+        <button onclick={refresh} disabled={!app.samplers.length} title="Reload memory and open disk folders" aria-label="Reload">↻</button>
+      </span>
+    </h3>
+    <SamplerTree
+      {rows}
+      selected={sel}
+      {focus}
+      {target}
+      {playing}
+      onrowdown={rowDown}
+      onrowclick={clickRow}
+      onrowdbl={dblRow}
+      onplay={play}
+      onkeydown={treeKey}
+    />
   </section>
 
   <div class="middle">
-    <button onclick={() => getSelected()} disabled={!selectedItems.length || !folder} title="Copy the selected items to the Mac folder">
+    <button onclick={getSelected} disabled={!selectedItems.length || !folder} title="Copy the selected items to the Mac folder">
       Get →
     </button>
-    <button onclick={sendSelected} disabled={!selectedFiles.length || !app.connected} title="Send the selected files to the sampler">
+    <button
+      onclick={sendSelected}
+      disabled={!selectedFiles.length || !sendTo}
+      title={sendTo ? `Send the selected files to ${app.label(sendTo.id)}` : "Connect a sampler first"}
+    >
       ← Send
     </button>
-    <label title="Get a program's samples, or a multi's programs and samples; send them too if they are not in memory">
+    <hr class="rule soft" />
+    <label title="Copy a program's samples, or a multi's programs and samples, with it. You choose which in a dialog.">
       <input type="checkbox" checked={app.settings.deps} onchange={(e) => app.save({ deps: e.currentTarget.checked })} />
       Include dependencies
     </label>
-    <label title="Overwrite files in the Mac folder that have the same name">
+    <label title="Overwrite items with the same name at the destination">
       <input type="checkbox" checked={app.settings.replace} onchange={(e) => app.save({ replace: e.currentTarget.checked })} />
-      Replace existing files
+      Replace existing
     </label>
+    {#if transfers.dontAsk}
+      <p class="hint">
+        Copying what is missing{transfers.sessionReplace ? " and replacing" : ""} without asking.
+        <button class="link" onclick={() => (transfers.dontAsk = false)}>Ask again</button>
+      </p>
+    {/if}
+    <p class="hint">Files go where their type belongs: .wav to Samples, .akp to Programs, .akm to Multis.</p>
   </div>
 
-  <section
-    class="pane"
-    data-drop="mac"
-    class:target={(drag && drag.from === "sampler" && drag.over === "mac") || finderOver === "mac"}
-  >
-    <div class="head">
-      <span class="title">Mac folder</span>
+  <section class="pane mac" data-drop={macPlace ? JSON.stringify(macPlace) : undefined} class:target={target?.at === "mac"}>
+    <h3 class="sign">
+      <span>Mac folder</span>
       <span class="tools">
-        <button onclick={up} disabled={!folder || folder === "/"} title="Enclosing folder">↑</button>
+        <button onclick={up} disabled={!folder || folder === "/"} title="Enclosing folder" aria-label="Enclosing folder">↑</button>
         <button onclick={chooseFolder}>Choose…</button>
-        <button onclick={loadFolder} disabled={!folder} title="Reload">↻</button>
+        <button onclick={loadFolder} disabled={!folder} title="Reload" aria-label="Reload">↻</button>
       </span>
-    </div>
-    <div class="path lcd" title={folder}><bdi>{folder || "No folder chosen"}</bdi></div>
+    </h3>
+    <div class="path" title={folder}><bdi>{folder || "No folder chosen"}</bdi></div>
     <div class="list" role="listbox" aria-multiselectable="true" tabindex="0" onkeydown={macKey}>
       {#if !folder}
         <p class="empty">Choose a folder, or drop one here from the Finder.</p>
       {:else}
         {#each entries as entry (entry.path)}
+          {@const sub = entry.kind === "dir" ? JSON.stringify({ at: "mac", folder: entry.path }) : undefined}
           <!-- svelte-ignore a11y_click_events_have_key_events (the listbox handles keys) -->
           <div
             class="row"
@@ -456,14 +666,13 @@
             aria-selected={macSel.has(entry.path)}
             class:selected={macSel.has(entry.path)}
             class:dir={entry.kind === "dir"}
+            class:target={sub !== undefined && target !== null && JSON.stringify(target) === sub}
+            data-drop={sub}
             onclick={(e) => clickMac(e, entry)}
-            ondblclick={() =>
-              entry.kind === "dir"
-                ? setFolder(entry.path)
-                : sendFiles([{ path: entry.path, name: entry.name, kind: entry.kind, size: entry.size }])}
-            onpointerdown={(e) => entry.kind !== "dir" && pointerDown(e, "mac", entry.path)}
+            ondblclick={() => dblMac(entry)}
+            onpointerdown={(e) => macDown(e, entry)}
           >
-            <span class="icon">{kindIcon[entry.kind]}</span>
+            <span class="icon">{entry.kind === "dir" ? "▸" : entry.kind === "sample" ? "∿" : entry.kind === "program" ? "P" : "M"}</span>
             <span class="name">{entry.name}</span>
             <span class="size">{entry.kind === "dir" ? "" : formatBytes(entry.size)}</span>
           </div>
@@ -472,48 +681,45 @@
         {/each}
       {/if}
     </div>
+    <div class="finder" data-finder class:on={drag?.out} class:show={drag && drag.from === "tree"}>
+      {#if drag?.from === "tree" && drag.finder === "fetching"}
+        {finderWaiting ? "Waiting for the sampler to finish its other transfers" : `Fetching for the Finder${finderPct === null ? "…" : ` ${finderPct}%`}`} · keep holding
+      {:else if drag?.from === "tree"}
+        {transfers.ready(drag.items) ? "Drag out to the Finder" : "Hold here or drag out of the window to fetch for the Finder"}
+      {:else}
+        Drag items out of the window to copy them to the Finder
+      {/if}
+    </div>
   </section>
 </div>
 
 <section class="queue">
-  <div class="head">
-    <span class="title">Queue</span>
+  <h3 class="sign">
+    <span>Queue</span>
+    {#if queue.pending}<span class="muted-sign">{queue.pending} pending</span>{/if}
     <span class="tools">
       <button onclick={() => queue.clearFinished()} disabled={queue.jobs.length === queue.pending}>Clear finished</button>
     </span>
-  </div>
+  </h3>
   <div class="jobs">
     {#each queue.jobs as job (job.id)}
       <div class="job {job.status}">
-        <span class="dir">{job.direction === "get" ? "→ Mac" : "→ Sampler"}</span>
-        <span class="name" title={job.label}>{job.label}{job.deps ? " +deps" : ""}</span>
+        <span class="route" title="{job.from} → {job.to}">{job.from} → {job.to}</span>
+        <span class="name" title={job.label}>{job.label}</span>
         <span class="bar">
-          <span
-            style:width={job.status === "done"
-              ? "100%"
-              : job.total
-                ? `${Math.min(100, (100 * job.done) / job.total)}%`
-                : job.status === "running"
-                  ? "100%"
-                  : "0%"}
-            class:indeterminate={job.status === "running" && !job.total}
-          ></span>
+          <span style:width={barWidth(job)} class:indeterminate={job.status === "running" && !job.total && !job.steps}></span>
         </span>
         <span class="state" title={job.note}>
-          {#if job.status === "running"}
-            {job.item && job.item !== job.source ? job.item : ""}
-            {job.done ? formatBytes(job.done) : ""}
-          {:else if job.status === "queued"}
-            queued <button class="x" onclick={() => queue.cancel(job.id)} title="Remove from the queue">✕</button>
-          {:else if job.status === "error"}
-            {job.note}
-          {:else}
-            {job.status}{job.note ? ` · ${job.note}` : ""}
+          {jobState(job)}
+          {#if job.status === "queued"}
+            <button class="x" onclick={() => queue.cancel(job.id)} title="Remove from the queue" aria-label="Remove">✕</button>
           {/if}
         </span>
       </div>
     {:else}
-      <p class="empty">Drag items between the two sides, double-click them, or use Get and Send.</p>
+      <p class="empty">
+        Drag items between samplers, disks and the Mac folder, or out to the Finder; double-click them, or use Get and Send.
+      </p>
     {/each}
   </div>
 </section>
@@ -521,18 +727,24 @@
 {#if drag}
   <div class="ghost" style:left="{drag.x + 12}px" style:top="{drag.y + 8}px">
     {drag.label}
-    {#if drag.over && drag.over !== drag.from}<b>{drag.from === "sampler" ? "→ Mac" : "→ Sampler"}</b>{/if}
+    {#if drag.out}
+      <b>→ Finder{drag.finder !== "fetching" ? "" : finderWaiting ? " · waiting" : finderPct === null ? " · fetching…" : ` · fetching ${finderPct}%`}</b>
+    {:else if target}
+      <b>→ {describePlace(target)}</b>
+    {/if}
   </div>
 {/if}
+
+<DepDialog />
 
 <style>
   .transfers {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 10px;
-    padding: 10px 12px 0;
-    height: calc(100% - 190px);
-    min-height: 280px;
+    grid-template-columns: minmax(0, 1.15fr) 150px minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px 12px 0;
+    height: calc(100% - 196px);
+    min-height: 300px;
   }
   .dragging {
     cursor: grabbing;
@@ -542,64 +754,96 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 6px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--rule-soft);
   }
   .pane.target {
     outline: 2px solid var(--accent);
-    outline-offset: -1px;
+    outline-offset: -2px;
   }
-  .head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--line);
+  h3 {
+    margin: 0;
   }
   .tools {
     margin-left: auto;
     display: flex;
     gap: 4px;
   }
-  .tools button {
-    padding: 1px 8px;
+  .sign button {
+    background: transparent;
+    color: var(--sign-text);
+    border-color: var(--sign-muted);
+    padding: 0 7px;
+    font-size: 11px;
+  }
+  .sign button:hover:not(:disabled) {
+    background: transparent;
+    border-color: var(--sign-text);
+  }
+  .sign button:active:not(:disabled) {
+    background: var(--sign-text);
+    color: var(--sign-bg);
+  }
+  .add {
+    position: relative;
+  }
+  .menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 5;
+    min-width: 240px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    font-weight: 400;
+  }
+  .sign .menu button {
+    color: var(--text);
+    border: none;
+    border-bottom: 1px solid var(--rule-soft);
+    text-align: left;
+    padding: 4px 8px;
     font-size: 12px;
   }
+  .sign .menu button:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+  .menu .note {
+    margin: 0;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .menu .note.error {
+    color: var(--bad);
+  }
   .path {
-    margin: 6px 8px 0;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--rule);
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
     direction: rtl;
     text-align: left;
   }
   .list {
     flex: 1;
     overflow: auto;
-    padding: 4px 0;
     outline: none;
-  }
-  .group {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 8px 10px 2px;
-    color: var(--muted);
   }
   .row {
     display: grid;
-    grid-template-columns: 1fr auto 70px 28px;
+    grid-template-columns: 16px 1fr 70px;
     gap: 8px;
     align-items: center;
-    padding: 2px 10px;
-    min-height: 24px;
-  }
-  .pane[data-drop="mac"] .row {
-    grid-template-columns: 16px 1fr 70px;
-  }
-  .row:nth-child(even) {
-    background: var(--panel-2);
+    padding: 0 8px;
+    min-height: 23px;
+    border-bottom: 1px solid var(--rule-soft);
   }
   .row.selected {
     background: var(--select);
@@ -609,67 +853,85 @@
     background: var(--select-soft);
     color: var(--text);
   }
+  .row.target {
+    background: var(--select-soft);
+  }
   .name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-family: var(--mono);
-    font-size: 12px;
   }
-  .detail,
   .size {
     font-size: 11px;
-    opacity: 0.75;
+    color: var(--muted);
+    text-align: right;
     white-space: nowrap;
   }
-  .size {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
+  .selected .size,
+  .selected .icon {
+    color: inherit;
   }
   .icon {
     font-size: 11px;
-    opacity: 0.7;
+    color: var(--muted);
     text-align: center;
   }
-  .dir .name {
-    font-family: inherit;
-  }
-  .play {
-    width: 24px;
-    height: 20px;
-    padding: 0;
-    font-size: 9px;
-  }
-  .play.on {
-    background: var(--accent);
-    color: var(--accent-text);
-    border-color: var(--accent);
-  }
-  .none,
   .empty {
     color: var(--muted);
     font-size: 12px;
-    padding: 2px 10px;
-  }
-  .empty {
     padding: 16px;
+    margin: 0;
+  }
+  .finder {
+    border-top: 1px solid var(--rule-soft);
+    padding: 6px 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .finder.show {
+    border: 1px dashed var(--rule);
+    color: var(--text);
+    font-weight: 700;
+    padding: 12px 8px;
+  }
+  .finder.on {
+    background: var(--accent);
+    color: var(--accent-text);
+    border-color: var(--accent);
   }
   .middle {
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 8px;
-    width: 150px;
   }
   .middle button {
     padding: 6px;
   }
   .middle label {
     font-size: 12px;
+    font-weight: 700;
+  }
+  .hint {
+    margin: 0;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .link {
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 11px;
+    text-decoration: underline;
+    color: var(--text);
   }
   .queue {
-    margin: 10px 12px 10px;
-    height: 170px;
+    margin: 12px;
+    height: 160px;
+  }
+  .muted-sign {
+    color: var(--sign-muted);
+    font-weight: 400;
   }
   .jobs {
     overflow: auto;
@@ -677,19 +939,23 @@
   }
   .job {
     display: grid;
-    grid-template-columns: 74px minmax(120px, 1.2fr) 1fr minmax(120px, 1.4fr);
-    gap: 10px;
+    grid-template-columns: minmax(140px, 1.3fr) minmax(110px, 1fr) minmax(80px, 1fr) minmax(140px, 1.5fr);
+    gap: 12px;
     align-items: center;
-    padding: 2px 10px;
+    padding: 0 8px;
+    min-height: 23px;
+    border-bottom: 1px solid var(--rule-soft);
     font-size: 12px;
   }
-  .job .dir {
+  .route {
     color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .bar {
-    height: 6px;
-    background: var(--track);
-    border-radius: 3px;
+    height: 4px;
+    background: var(--surface-2);
     overflow: hidden;
   }
   .bar span {
@@ -703,7 +969,6 @@
   }
   .error .bar span {
     background: var(--bad);
-    width: 100% !important;
   }
   .error .state {
     color: var(--bad);
@@ -737,12 +1002,16 @@
   .ghost {
     position: fixed;
     pointer-events: none;
-    background: var(--select);
-    color: var(--select-text);
+    background: var(--sign-bg);
+    color: var(--sign-text);
     padding: 3px 8px;
-    border-radius: 4px;
     font-size: 12px;
-    box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
+    font-weight: 700;
     z-index: 20;
+    white-space: nowrap;
+  }
+  .ghost b {
+    color: var(--sign-muted);
+    margin-left: 6px;
   }
 </style>
