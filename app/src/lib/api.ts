@@ -31,6 +31,12 @@ export interface SamplerMeta {
   active: boolean;
 }
 
+/** "S5000 · USB 0b-120", as the sampler tree names it. */
+export function usbLabel(d: UsbDevice): string {
+  const product = d.label.match(/S[56]000/i)?.[0].toUpperCase() ?? "Sampler";
+  return `${product} · USB ${d.key}`;
+}
+
 export interface UsbDevice {
   key: string;
   label: string;
@@ -181,6 +187,10 @@ export interface Settings {
   mode?: Mode;
   /** The user accepted that disk writes and loads are experimental. */
   diskOpsAccepted?: boolean;
+  /** Interface zoom (1 = 100%). */
+  zoom?: number;
+  /** Connect to samplers on USB automatically. */
+  autoConnect?: "off" | "startup" | "always";
 }
 
 type Id = number | undefined;

@@ -220,7 +220,8 @@
     border-bottom: 1px solid var(--rule-soft);
   }
   .row.group {
-    grid-template-columns: 14px auto 1fr auto;
+    /* arrow, label, count, then the Disks row's tag and Rescan button */
+    grid-template-columns: 14px auto 1fr auto auto;
     font-weight: 700;
     font-size: 12px;
   }

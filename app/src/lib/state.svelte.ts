@@ -129,8 +129,14 @@ class AppState {
     if (s) await this.setActive(s.id);
   }
 
+  /** USB samplers the user disconnected: not reconnected automatically until
+   *  they are unplugged or switched off. */
+  dismissedUsb = new Set<string>();
+
   async remove(id: number) {
     const name = this.label(id);
+    const s = this.sampler(id);
+    if (s && !s.simulated && s.short_id.startsWith("USB ")) this.dismissedUsb.add(s.short_id.slice(4));
     await api.removeSampler(id).catch((e) => this.fail(e));
     this.samplers = this.samplers.filter((s) => s.id !== id);
     await this.sync().catch(() => {});

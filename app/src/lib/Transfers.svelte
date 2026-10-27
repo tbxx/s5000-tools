@@ -7,9 +7,11 @@
   import { SvelteSet } from "svelte/reactivity";
   import { listen } from "@tauri-apps/api/event";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { zoom } from "./prefs.svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import { startDrag } from "@crabnebula/tauri-plugin-drag";
-  import { api, formatBytes, message, type Entry, type Kind, type Place, type UsbDevice } from "./api";
+  import { api, formatBytes, message, usbLabel, type Entry, type Kind, type Place, type UsbDevice } from "./api";
   import DepDialog from "./DepDialog.svelte";
   import SamplerTree from "./SamplerTree.svelte";
   import { dialogs } from "./dialogs.svelte";
@@ -546,13 +548,23 @@
   // --- Files dropped from the Finder ----------------------------------------------------------
   let finderOver = $state<Place | null>(null);
 
+  let screenScale = window.devicePixelRatio || 1;
   onMount(() => {
+    getCurrentWindow()
+      .scaleFactor()
+      .then((f) => (screenScale = f))
+      .catch(() => {});
+    getCurrentWindow()
+      .onScaleChanged(({ payload }) => (screenScale = payload.scaleFactor))
+      .catch(() => {});
     const unlisten = getCurrentWebview().onDragDropEvent(({ payload }) => {
       if (payload.type === "leave") {
         finderOver = null;
         return;
       }
-      const r = window.devicePixelRatio || 1;
+      // Physical pixels to page pixels: the screen's scale, then the app's
+      // zoom (devicePixelRatio includes the zoom on some engines, not others).
+      const r = screenScale * zoom();
       const place = placeAt(payload.position.x / r, payload.position.y / r);
       if (payload.type !== "drop") {
         finderOver = place;
@@ -630,8 +642,8 @@
                 <p class="note">No S5000/S6000 on USB</p>
               {:else}
                 {#each usb as d (d.key)}
-                  <button role="menuitem" disabled={d.connected !== null} onclick={() => add({ kind: "usb", key: d.key })}>
-                    {d.label}{d.connected !== null ? " · connected" : ""}
+                  <button role="menuitem" title={d.label} disabled={d.connected !== null} onclick={() => add({ kind: "usb", key: d.key })}>
+                    {usbLabel(d)}{d.connected !== null ? " · connected" : ""}
                   </button>
                 {/each}
               {/if}
@@ -814,6 +826,8 @@
   .tools {
     margin-left: auto;
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 4px;
   }
   .sign button {

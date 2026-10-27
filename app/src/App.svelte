@@ -4,13 +4,15 @@
   import FrontPanel from "./lib/FrontPanel.svelte";
   import Meters from "./lib/Meters.svelte";
   import MultiEditor from "./lib/MultiEditor.svelte";
+  import Preferences from "./lib/Preferences.svelte";
   import ProgramEditor from "./lib/ProgramEditor.svelte";
   import Transfers from "./lib/Transfers.svelte";
   import { queue } from "./lib/queue.svelte";
   import { app } from "./lib/state.svelte";
-  import { api, type UsbDevice } from "./lib/api";
+  import { api, usbLabel, type UsbDevice } from "./lib/api";
+  import { applyZoom, autoConnect, connectAll, modKey, modLabel, setZoom, stepZoom } from "./lib/prefs.svelte";
 
-  // One route bullet per view; ⌘1–⌘5 switch views.
+  // One route bullet per view; ⌘1–⌘5 (Ctrl elsewhere) switch views.
   const views = [
     { id: "transfers", label: "Transfers", bullet: "blue" },
     { id: "panel", label: "Front panel", bullet: "red" },
@@ -25,8 +27,6 @@
   let usb = $state<UsbDevice[]>([]);
   let choice = $state("simulator");
   let picked = false;
-
-  const product = (label: string) => label.match(/S[56]000/i)?.[0].toUpperCase() ?? "Sampler";
 
   async function scan() {
     try {
@@ -55,10 +55,19 @@
     return () => clearInterval(timer);
   });
   let openProgram = $state<string | undefined>();
+  let prefsOpen = $state(false);
+
+  // "Connect whenever one is switched on": look for new samplers every few seconds.
+  $effect(() => {
+    if (autoConnect() !== "always") return;
+    const timer = setInterval(connectAll, 3000);
+    return () => clearInterval(timer);
+  });
 
   onMount(async () => {
     await app.init();
     await queue.init();
+    await applyZoom();
     // For development: #connect=simulator&view=program&program=Drums connects
     // to the simulator and opens a view (and a program).
     const hash = new URLSearchParams(location.hash.slice(1));
@@ -66,11 +75,18 @@
     if (hash.get("connect") === "simulator") await app.connect({ kind: "simulator" });
     openProgram = hash.get("program") ?? undefined;
     if (v) view = v.id;
+    if (!hash.has("connect") && autoConnect() !== "off") await connectAll();
   });
 
   function keyDown(e: KeyboardEvent) {
+    if (!modKey(e) || e.altKey) return;
+    // Zoom: ⌘+ (also ⌘= and ⌘⇧=), ⌘−, ⌘0.
+    if (e.key === "=" || e.key === "+") return void (e.preventDefault(), stepZoom(1));
+    if (e.key === "-" || e.key === "_") return void (e.preventDefault(), stepZoom(-1));
+    if (e.key === "0") return void (e.preventDefault(), setZoom(1));
+    if (e.key === ",") return void (e.preventDefault(), (prefsOpen = true));
     const n = parseInt(e.key);
-    if (!e.metaKey || e.shiftKey || e.altKey || !(n >= 1 && n <= views.length)) return;
+    if (e.shiftKey || !(n >= 1 && n <= views.length)) return;
     e.preventDefault();
     view = views[n - 1].id;
   }
@@ -83,12 +99,13 @@
     <div class="brand">s5000-tools</div>
     <nav>
       {#each views as v, i}
-        <button class:active={view === v.id} onclick={() => (view = v.id)} title="{v.label} (⌘{i + 1})">
+        <button class:active={view === v.id} onclick={() => (view = v.id)} title="{v.label} ({modLabel}{i + 1})">
           <span class="bullet {v.bullet}">{i + 1}</span>{v.label}
         </button>
       {/each}
     </nav>
     <div class="connection">
+      <button class="prefs" onclick={() => (prefsOpen = true)} title="Preferences ({modLabel},)" aria-label="Preferences">Preferences</button>
       {#if app.info}
         <span class="info" title="OS {app.info.os_version}">
           <b>{app.info.name}</b>
@@ -100,7 +117,7 @@
       {:else}
         <select bind:value={choice} onchange={() => (picked = true)} disabled={app.connecting} aria-label="Sampler">
           {#each usb as d (d.key)}
-            <option value={d.key} title={d.label}>{product(d.label)} · USB {d.key}</option>
+            <option value={d.key} title={d.label}>{usbLabel(d)}</option>
           {/each}
           <option value="simulator">Simulator</option>
         </select>
@@ -124,6 +141,8 @@
       <MultiEditor />
     {/if}
   </main>
+
+  {#if prefsOpen}<Preferences onclose={() => (prefsOpen = false)} />{/if}
 
   <footer>
     <span class="dot" class:on={app.connected} class:sim={app.info?.simulated}></span>

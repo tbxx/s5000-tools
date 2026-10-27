@@ -38,6 +38,10 @@ any virtual machine first.
   its right, each beside its screen row. Clicking a row of the screen presses
   that side's key. Keyboard: arrows, 0–9, +/−, Enter = Ent/Play, Esc = Exit.
 - **Meters (⌘3):** 16 outputs and the record inputs.
+- **Preferences (⌘,):** interface size (⌘+ / ⌘− / ⌘0 anywhere; the window
+  grows with it) and connecting automatically: off, at startup, or also
+  whenever a sampler is switched on. A sampler you disconnect isn't
+  reconnected until it is switched off or unplugged.
 - **Program (⌘4):** every program, keygroup, zone and envelope setting; edits
   go to the sampler as you turn knobs or drag envelope points. A `.akp`
   opened from the Mac is read-only.

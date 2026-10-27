@@ -144,6 +144,7 @@ body {
 button {
   font: inherit;
   font-weight: 700;
+  white-space: nowrap;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--rule);

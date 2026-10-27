@@ -9,6 +9,15 @@ replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
 > and please [report](https://github.com/tbxx/s5000-tools/issues) what works
 > and what doesn't, with your model, OS version and computer.
 
+![Transfers: a sampler's memory and disks next to a folder on the computer](docs/images/transfers.png)
+
+| | |
+|---|---|
+| ![The front panel: the sampler's live screen with its soft keys beside the rows](docs/images/front-panel.png) | ![Copying a multi with the programs and samples it uses](docs/images/dependencies.png) |
+| **Front panel**: the live screen; click a row or its key | **Dependencies**: programs and multis bring what they use |
+| ![The program editor](docs/images/program.png) | ![The multi editor](docs/images/multi.png) |
+| **Program editor**: every setting, live | **Multi editor**: the parts table, live |
+
 ## What's here
 
 - **The app**:
@@ -20,6 +29,9 @@ replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
   - **Program editor:** live, including draggable envelopes.
   - **Multi editor:** the parts table (program, MIDI channel, level, pan,
     output, mute/solo, FX, tuning, key range), live.
+- **Preferences** (⌘, / Ctrl+,): interface size (also ⌘+ / ⌘−, Ctrl on
+  Windows and Linux), and connecting to samplers automatically when the app
+  starts or when one is switched on.
 - **`s5k`**, a command-line tool for the same jobs; see
   [docs/cli.md](docs/cli.md).
 
@@ -66,7 +78,8 @@ unplug and replug the sampler.
 
 ### Windows
 
-The tools talk to the sampler through Microsoft's generic **WinUSB** driver,
+Windows 10 or later, 64-bit (the app's WebView2 and current Rust no longer
+support Windows 7). The tools talk to the sampler through Microsoft's generic **WinUSB** driver,
 which you install for the sampler with [Zadig](https://zadig.akeo.ie):
 
 1. Connect and switch on the sampler, then run Zadig.
