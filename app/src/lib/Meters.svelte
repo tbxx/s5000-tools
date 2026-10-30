@@ -2,66 +2,123 @@
   import { onMount } from "svelte";
   import { api, poll } from "./api";
   import { app } from "./state.svelte";
+  import Meter from "./meters/Meter.svelte";
+  import MeterStylePicker from "./meters/MeterStylePicker.svelte";
+  import { channel, step } from "./meters/ballistics";
+  import { SILENT, scaleMarks, styleOf, type MeterKind } from "./meters/styles";
 
-  // Raw values are dB below full scale; 0x60 (96) means silence.
-  const SILENT = 0x60;
-  const FLOOR = 60; // dB shown at the bottom of the scale
-  const ticks = [0, 6, 12, 18, 24, 30, 40, 50, 60];
+  // Raw levels are dB below full scale; 0x60 (96) means silence.
+  const RAW_SILENT = 0x60;
+  const toDb = (raw: number) => (raw >= RAW_SILENT ? SILENT : -raw);
 
-  let outputs = $state<number[]>(Array(16).fill(SILENT));
-  let inputs = $state<number[]>(Array(2).fill(SILENT));
-  let peaks = $state<{ db: number; at: number }[]>(Array.from({ length: 18 }, () => ({ db: SILENT, at: 0 })));
+  const style = $derived(styleOf(app.settings.meterStyle));
+  const kind = $derived(style.id);
+  const peakHold = $derived(app.settings.meterPeakHold ?? true);
+  const vuRef = $derived(app.settings.meterVuRef ?? -18);
+  const marks = $derived(scaleMarks(kind));
 
-  /** 0 at the floor, 1 at full scale. */
-  const height = (db: number) => (db >= SILENT ? 0 : Math.max(0, 1 - db / FLOOR));
+  // 16 outputs, then record L and R. Readings arrive every ~60 ms; the
+  // display moves every frame between them.
+  const LABELS = [...Array.from({ length: 16 }, (_, i) => String(i + 1)), "L", "R"];
+  let readings = Array<number>(18).fill(SILENT);
+  let ch = $state(LABELS.map(() => channel()));
+  let picking = $state(false);
 
-  function hold(i: number, db: number, now: number) {
-    const p = peaks[i];
-    if (db <= p.db || now - p.at > 1500) peaks[i] = { db, at: now };
+  function pick(id: MeterKind) {
+    app.save({ meterStyle: id });
+    picking = false;
   }
 
-  onMount(() =>
-    poll(60, async () => {
-      if (!app.connected) return;
+  onMount(() => {
+    const stop = poll(60, async () => {
+      if (!app.connected) {
+        readings.fill(SILENT);
+        return;
+      }
       const m = await api.meters();
-      const now = performance.now();
-      outputs = m.outputs;
-      inputs = m.inputs;
-      [...m.outputs, ...m.inputs].forEach((db, i) => hold(i, db, now));
-    }),
-  );
+      readings = [...m.outputs, ...m.inputs].map(toDb);
+    });
+    let last = performance.now();
+    let raf = requestAnimationFrame(function frame(now) {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      ch.forEach((c, i) => step(c, readings[i], dt, vuRef));
+      raf = requestAnimationFrame(frame);
+    });
+    return () => {
+      stop();
+      cancelAnimationFrame(raf);
+    };
+  });
 </script>
 
-{#snippet meter(db: number, peak: number, label: string)}
-  <div class="meter">
-    <div class="bar">
-      <div class="fill" style:height="{height(db) * 100}%"></div>
-      {#if peak < SILENT}<div class="peak" style:bottom="{height(peak) * 100}%"></div>{/if}
-    </div>
-    <span class="label">{label}</span>
-    <span class="value">{db >= SILENT ? "—" : `-${db}`}</span>
+<div class="view">
+  <div class="tools">
+    <button class="style" onclick={() => (picking = !picking)} aria-expanded={picking}>
+      Style: {style.name} <span aria-hidden="true">▾</span>
+    </button>
+    {#if style.family === "led"}
+      <label><input type="checkbox" checked={peakHold} onchange={(e) => app.save({ meterPeakHold: e.currentTarget.checked })} /> Peak hold</label>
+    {:else}
+      <label>
+        0 VU =
+        <select value={String(vuRef)} onchange={(e) => app.save({ meterVuRef: Number(e.currentTarget.value) })}>
+          <option value="-14">−14 dBFS</option>
+          <option value="-18">−18 dBFS</option>
+          <option value="-20">−20 dBFS</option>
+        </select>
+      </label>
+    {/if}
+    <span class="muted note">{style.note}</span>
   </div>
-{/snippet}
+  {#if picking}
+    <div class="picker">
+      <MeterStylePicker value={kind} onpick={pick} />
+    </div>
+  {/if}
 
-<div class="wrap">
-  <div class="rack">
-    <div class="section">
-      <h3 class="sign">Outputs</h3>
-      <div class="meters">
-        <div class="scale">
-          {#each ticks as t}<span style:bottom="{(1 - t / FLOOR) * 100}%">{t === 0 ? "0" : `−${t}`}</span>{/each}
+  {#if style.family === "led"}
+    <div class="rack led" class:fsc={kind === "fsc"}>
+      <section class="group outputs">
+        <h3 class="sign">Outputs</h3>
+        <div class="row">
+          <div class="scale" aria-hidden="true">
+            <div class="marks">
+              {#each marks as m}<span style:bottom="{m.at * 100}%">{m.label}</span>{/each}
+            </div>
+          </div>
+          {#each ch.slice(0, 16) as c, i}
+            <div class="cell" class:twin={kind === "twin"}><Meter {kind} ch={c} {peakHold} label={LABELS[i]} /></div>
+          {/each}
         </div>
-        {#each outputs as db, i}{@render meter(db, peaks[i].db, String(i + 1))}{/each}
-      </div>
+      </section>
+      <section class="group record">
+        <h3 class="sign">Record</h3>
+        <div class="row">
+          {#each ch.slice(16) as c, i}
+            <div class="cell" class:twin={kind === "twin"}><Meter {kind} ch={c} {peakHold} label={LABELS[16 + i]} /></div>
+          {/each}
+        </div>
+      </section>
     </div>
-    <div class="section">
-      <h3 class="sign">Record</h3>
-      <div class="meters">
-        {#each inputs as db, i}{@render meter(db, peaks[16 + i].db, i ? "R" : "L")}{/each}
-      </div>
+  {:else}
+    <div class="rack vu">
+      <section class="group outputs">
+        <h3 class="sign">Outputs</h3>
+        <div class="grid">
+          {#each ch.slice(0, 16) as c, i}<Meter {kind} ch={c} label={LABELS[i]} />{/each}
+        </div>
+      </section>
+      <section class="group record">
+        <h3 class="sign">Record</h3>
+        <div class="grid one">
+          {#each ch.slice(16) as c, i}<Meter {kind} ch={c} label={LABELS[16 + i]} />{/each}
+        </div>
+      </section>
     </div>
-  </div>
-  <p class="muted note">
+  {/if}
+
+  <p class="muted foot">
     {#if !app.connected}
       Not connected.
     {:else if app.info?.simulated}
@@ -73,99 +130,115 @@
 </div>
 
 <style>
-  .wrap {
-    padding: 18px;
+  .view {
+    height: 100%;
     display: flex;
     flex-direction: column;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+  .tools {
+    display: flex;
     align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 12px;
+  }
+  .tools label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+  }
+  .note {
+    flex: 1;
+    min-width: 200px;
+  }
+  .picker {
+    padding: 10px;
+    border: 1px solid var(--rule);
+    background: var(--surface);
   }
   .rack {
+    flex: 1;
+    min-height: 0;
     display: flex;
     gap: 28px;
   }
-  .section {
+  .group {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
+    min-height: 0;
   }
-  .section .sign {
+  .group .sign {
     margin: 0;
   }
-  .meters {
+  .led .outputs {
+    flex: 1;
+    min-width: 0;
+  }
+  .row {
+    flex: 1;
+    min-height: 200px;
     display: flex;
-    gap: 6px;
-    position: relative;
+    gap: 8px;
   }
+  .cell {
+    flex: 1 1 0;
+    min-width: 14px;
+    max-width: 60px;
+  }
+  .cell.twin {
+    max-width: 72px;
+  }
+  .record .cell {
+    width: 60px;
+    flex: none;
+  }
+  /* The scale lines up with the bars: room for the OVL lamp above (Studio
+     console style) and the label below. */
   .scale {
-    position: relative;
     width: 26px;
-    height: 320px;
-    font-size: 9px;
-    color: var(--muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .scale span {
-    position: absolute;
-    right: 4px;
-    transform: translateY(50%);
-  }
-  .scale span::after {
-    content: "";
-    position: absolute;
-    right: -4px;
-    top: 50%;
-    width: 3px;
-    border-top: 1px solid var(--rule);
-  }
-  .meter {
+    flex: none;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 4px;
+    padding-bottom: 36px;
   }
-  .bar {
+  .fsc .scale {
+    padding-top: 22px;
+  }
+  .marks {
+    flex: 1;
     position: relative;
-    width: 22px;
-    height: 320px;
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--rule);
-    overflow: hidden;
-  }
-  /* Green to -12 dB, yellow to -3 dB, red above (FLOOR = 60 dB). */
-  .fill {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(
-      to top,
-      var(--mta-green) 0 80%,
-      var(--mta-yellow) 80% 95%,
-      var(--mta-red) 95% 100%
-    );
-    background-size: 100% 320px;
-    background-position: bottom;
-  }
-  .peak {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--text);
-  }
-  .label {
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .value {
-    font-size: 9px;
-    width: 26px;
-    text-align: center;
+    font-size: 10px;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
   }
-  .note {
+  .marks span {
+    position: absolute;
+    right: 3px;
+    transform: translateY(50%);
+  }
+  .vu .outputs {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .vu .record {
+    width: 260px;
+    flex: none;
+  }
+  .grid.one {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .foot {
+    margin: 0;
     font-size: 12px;
-    margin-top: 16px;
   }
 </style>

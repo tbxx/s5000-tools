@@ -191,6 +191,12 @@ export interface Settings {
   zoom?: number;
   /** Connect to samplers on USB automatically. */
   autoConnect?: "off" | "startup" | "always";
+  /** Colour scheme (schemes.ts); none = follow the system. */
+  colorScheme?: import("./schemes").SchemeId;
+  /** Meter style (meters/styles.ts), peak hold, and the dBFS level at 0 VU. */
+  meterStyle?: import("./meters/styles").MeterKind;
+  meterPeakHold?: boolean;
+  meterVuRef?: number;
 }
 
 type Id = number | undefined;

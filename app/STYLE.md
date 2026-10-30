@@ -7,9 +7,11 @@ bullets, active state, meters and LEDs. Keep it dense and functional, with no
 decoration and no textures.
 
 Every token is a CSS custom property in `src/app.css`. Light is the default.
-Dark applies with `prefers-color-scheme: dark`, or when you force it with
-`<html data-theme="dark">` (or `"light"`). Use the tokens; never hard-code
-colours in a component.
+Colour schemes (Preferences) are token sets under `[data-theme="…"]`: light,
+dark, studio, ivory, contrast. "System" sets no `data-theme` and follows
+`prefers-color-scheme`. Any element can carry `data-theme`, which is how the
+Preferences tiles preview a scheme. Use the tokens; never hard-code colours in
+a component (meter faces and LEDs, which imitate hardware, are the exception).
 
 ## Tokens
 

@@ -37,7 +37,11 @@ any virtual machine first.
 - **Front panel (⌘2):** the live screen with F1–F8 to its left and F9–F16 to
   its right, each beside its screen row. Clicking a row of the screen presses
   that side's key. Keyboard: arrows, 0–9, +/−, Enter = Ent/Play, Esc = Exit.
-- **Meters (⌘3):** 16 outputs and the record inputs.
+- **Meters (⌘3):** 16 outputs and the record inputs, filling the window.
+  Styles: Signage, Console LED, Plasma, Flying spot, Twin column, Studio
+  console, and Ivory, Amber and Black VU (`src/lib/meters/`). VU needles have
+  VU ballistics; LED meters peak hold. The style, peak hold and the 0 VU
+  reference are remembered.
 - **Preferences (⌘,):** interface size (⌘+ / ⌘− / ⌘0 anywhere; the window
   grows with it) and connecting automatically: off, at startup, or also
   whenever a sampler is switched on. A sampler you disconnect isn't

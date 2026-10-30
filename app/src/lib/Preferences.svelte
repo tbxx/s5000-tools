@@ -1,6 +1,10 @@
 <script lang="ts">
   import { app } from "./state.svelte";
   import { ZOOMS, autoConnect, connectAll, modLabel, setZoom, zoom, type AutoConnect } from "./prefs.svelte";
+  import SchemePicker from "./SchemePicker.svelte";
+  import { applyScheme, type SchemeId } from "./schemes";
+  import MeterStylePicker from "./meters/MeterStylePicker.svelte";
+  import { styleOf, type MeterKind } from "./meters/styles";
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -13,6 +17,13 @@
       detail: "A sampler you disconnect stays disconnected until it is switched off or unplugged.",
     },
   ];
+
+  function setScheme(id: SchemeId) {
+    app.save({ colorScheme: id });
+    applyScheme(id);
+  }
+
+  const meterStyle = $derived(styleOf(app.settings.meterStyle));
 
   function setAuto(v: AutoConnect) {
     app.save({ autoConnect: v });
@@ -48,6 +59,17 @@
       </section>
 
       <section>
+        <h3>Colour scheme</h3>
+        <SchemePicker value={app.settings.colorScheme ?? "system"} onpick={setScheme} />
+      </section>
+
+      <section>
+        <h3>Meters</h3>
+        <MeterStylePicker value={meterStyle.id} onpick={(id: MeterKind) => app.save({ meterStyle: id })} />
+        <p class="hint">{meterStyle.name}: {meterStyle.note}</p>
+      </section>
+
+      <section>
         <h3>Connect to samplers automatically</h3>
         {#each choices as c}
           <label class="choice">
@@ -76,7 +98,10 @@
   .dialog {
     background: var(--surface);
     border: 1px solid var(--rule);
-    width: min(480px, calc(100vw - 32px));
+    width: min(720px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
     outline: none;
   }
   h2 {
@@ -86,6 +111,7 @@
   }
   .body {
     padding: 4px 12px 12px;
+    overflow: auto;
   }
   section {
     padding: 10px 0 12px;

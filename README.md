@@ -29,9 +29,12 @@ replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
   - **Program editor:** live, including draggable envelopes.
   - **Multi editor:** the parts table (program, MIDI channel, level, pan,
     output, mute/solo, FX, tuning, key range), live.
+- **Meters** in nine styles: LED and plasma bargraphs and moving-coil VUs,
+  modelled on classic studio consoles.
 - **Preferences** (⌘, / Ctrl+,): interface size (also ⌘+ / ⌘−, Ctrl on
-  Windows and Linux), and connecting to samplers automatically when the app
-  starts or when one is switched on.
+  Windows and Linux), colour scheme (System, Light, Dark, Studio, Ivory, High
+  contrast) and meter style, each with a live preview, and connecting to
+  samplers automatically when the app starts or when one is switched on.
 - **`s5k`**, a command-line tool for the same jobs; see
   [docs/cli.md](docs/cli.md).
 

@@ -10,6 +10,7 @@
   import { queue } from "./lib/queue.svelte";
   import { app } from "./lib/state.svelte";
   import { api, usbLabel, type UsbDevice } from "./lib/api";
+  import { applyScheme } from "./lib/schemes";
   import { applyZoom, autoConnect, connectAll, modKey, modLabel, setZoom, stepZoom } from "./lib/prefs.svelte";
 
   // One route bullet per view; ⌘1–⌘5 (Ctrl elsewhere) switch views.
@@ -68,6 +69,7 @@
     await app.init();
     await queue.init();
     await applyZoom();
+    applyScheme(app.settings.colorScheme);
     // For development: #connect=simulator&view=program&program=Drums connects
     // to the simulator and opens a view (and a program).
     const hash = new URLSearchParams(location.hash.slice(1));
@@ -187,6 +189,7 @@
     font-weight: 700;
     font-size: 15px;
     letter-spacing: -0.01em;
+    white-space: nowrap;
   }
   nav {
     display: flex;
