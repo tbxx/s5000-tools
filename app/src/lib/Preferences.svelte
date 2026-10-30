@@ -78,10 +78,9 @@
           </label>
         {/each}
       </section>
-
-      <div class="buttons">
-        <button class="primary" onclick={onclose}>Done</button>
-      </div>
+    </div>
+    <div class="buttons">
+      <button class="primary" onclick={onclose}>Done</button>
     </div>
   </div>
 </div>
@@ -105,17 +104,24 @@
     outline: none;
   }
   h2 {
+    flex: none;
     margin: 0;
     font-size: 14px;
     padding: 6px 12px;
   }
+  /* The sections scroll; the title and Done stay in view. */
   .body {
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 4px 12px 12px;
     overflow: auto;
   }
   section {
     padding: 10px 0 12px;
     border-bottom: 1px solid var(--rule-soft);
+  }
+  section:last-child {
+    border-bottom: none;
   }
   h3 {
     margin: 0 0 8px;
@@ -158,8 +164,10 @@
     font-size: 11px;
   }
   .buttons {
+    flex: none;
     display: flex;
     justify-content: flex-end;
-    padding-top: 12px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--rule-soft);
   }
 </style>
