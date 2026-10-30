@@ -26,12 +26,24 @@ struct Lost {
     message: String,
 }
 
+/// Remembers the window's position and size between runs. With
+/// S5000_TOOLS_CONFIG_DIR set (testing), the file goes there too.
+fn window_state<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    let mut builder = tauri_plugin_window_state::Builder::default();
+    if let Some(dir) = std::env::var_os("S5000_TOOLS_CONFIG_DIR") {
+        let path = std::path::PathBuf::from(dir).join("window-state.json");
+        builder = builder.with_filename(path.to_string_lossy());
+    }
+    builder.build()
+}
+
 fn main() {
     // Files fetched for earlier drags to the Finder; the Finder has copied them.
     let _ = std::fs::remove_dir_all(commands::drag_root());
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_drag::init())
+        .plugin(window_state())
         .setup(|app| {
             let handle = app.handle().clone();
             app.manage(samplers::Samplers::new(move |id, message| {
