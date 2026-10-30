@@ -43,8 +43,8 @@ any virtual machine first.
   VU ballistics; LED meters peak hold. The style, peak hold and the 0 VU
   reference are remembered.
 - **Preferences (⌘,):** interface size (⌘+ / ⌘− / ⌘0 anywhere; the window
-  grows with it) and connecting automatically: off, at startup, or also
-  whenever a sampler is switched on. A sampler you disconnect isn't
+  grows with it) and connecting automatically: off, at startup (the
+  default), or also whenever a sampler is switched on. A sampler you disconnect isn't
   reconnected until it is switched off or unplugged.
 - **Program (⌘4):** every program, keygroup, zone and envelope setting; edits
   go to the sampler as you turn knobs or drag envelope points. A `.akp`

@@ -68,7 +68,8 @@ export function stepZoom(dir: 1 | -1) {
 
 export type AutoConnect = "off" | "startup" | "always";
 
-export const autoConnect = (): AutoConnect => app.settings.autoConnect ?? "off";
+/** Connecting at startup is the default: most people have one sampler. */
+export const autoConnect = (): AutoConnect => app.settings.autoConnect ?? "startup";
 
 /** USB keys that failed to open (e.g. in use by ak.Sys); retried once they reappear. */
 const failed = new Set<string>();
