@@ -71,6 +71,10 @@
         </select>
       </label>
     {/if}
+    <label title="Outputs 9–16 need the output expander board">
+      <input type="checkbox" checked={outputs === 16} onchange={(e) => app.save({ meterShowUpper: e.currentTarget.checked })} />
+      Outputs 9–16
+    </label>
     <span class="muted note">{style.note}</span>
   </div>
   {#if picking}
