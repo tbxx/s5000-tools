@@ -15,6 +15,8 @@
   const kind = $derived(style.id);
   const peakHold = $derived(app.settings.meterPeakHold ?? true);
   const vuRef = $derived(app.settings.meterVuRef ?? -18);
+  /** Where 0 VU sits: from full scale (0) down to −20 dBFS. */
+  const VU_REFS = [0, -3, -6, -8, -10, -12, -14, -16, -18, -20];
   // Outputs 9-16 exist only with the output expander board.
   const outputs = $derived(app.settings.meterShowUpper === false ? 8 : 16);
   const marks = $derived(scaleMarks(kind));
@@ -67,9 +69,7 @@
       <label>
         0 VU =
         <select value={String(vuRef)} onchange={(e) => app.save({ meterVuRef: Number(e.currentTarget.value) })}>
-          <option value="-14">−14 dBFS</option>
-          <option value="-18">−18 dBFS</option>
-          <option value="-20">−20 dBFS</option>
+          {#each VU_REFS as r}<option value={String(r)}>{r ? `−${-r}` : "0"} dBFS</option>{/each}
         </select>
       </label>
     {/if}

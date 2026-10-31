@@ -185,8 +185,8 @@
       <ul>
         <li><b>Peak hold</b> (LED styles) keeps each peak for 1.5 s.</li>
         <li>
-          <b>0 VU =</b> (VU styles) is the digital level that reads 0 on the dial: −14, −18 or −20 dBFS. −18 suits
-          most material.
+          <b>0 VU =</b> (VU styles) is the digital level that reads 0 on the dial, from 0 dBFS (full scale) down to
+          −20 dBFS. −18 suits most material; nearer 0 suits hot, mastered material.
         </li>
         <li>Outputs 9–16 need the output expander board; untick <b>Outputs 9–16</b> beside the style (or in Preferences) to hide them.</li>
       </ul>
