@@ -59,6 +59,8 @@
     <button class="style" onclick={() => (picking = !picking)} aria-expanded={picking}>
       Style: {style.name} <span aria-hidden="true">▾</span>
     </button>
+    <!-- Grows, so the switches after it sit at the right. -->
+    <span class="muted note">{style.note}</span>
     {#if style.family === "led"}
       <label><input type="checkbox" checked={peakHold} onchange={(e) => app.save({ meterPeakHold: e.currentTarget.checked })} /> Peak hold</label>
     {:else}
@@ -75,7 +77,6 @@
       <input type="checkbox" checked={outputs === 16} onchange={(e) => app.save({ meterShowUpper: e.currentTarget.checked })} />
       Outputs 9–16
     </label>
-    <span class="muted note">{style.note}</span>
   </div>
   {#if picking}
     <div class="picker">
