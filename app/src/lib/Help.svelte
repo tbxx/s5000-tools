@@ -260,8 +260,9 @@
         <li>Switches, and menus with the same choices, take the same setting.</li>
       </ul>
       <p>
-        Links work across panels, keygroups' and zones' controls, and between the program and multi editors' knobs. With
-        several parts or keygroups selected as well, each linked control changes all of them.
+        Links work across the panels of the view you are in; each window has its own, and switching views unlinks the
+        old view's controls. With several parts or keygroups selected as well, each linked control changes all of
+        them.
       </p>
     </section>
 
