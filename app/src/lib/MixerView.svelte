@@ -5,8 +5,8 @@
   // pan, key range, mute/solo and the level fader. The same values as the
   // table view, and the same writes.
   //
-  // Keyboard: the strips are one Tab stop; ← → move through the controls,
-  // ↑ ↓ change a value, ⌥← ⌥→ move to the same control in the next strip.
+  // Keyboard: Tab and ← → move through the controls, strip by strip; ↑ ↓
+  // change a value, ⌥← ⌥→ move to the same control in the next strip.
   import type { MultiView, ParamInfo } from "./api";
   import Fader from "./Fader.svelte";
   import MiniKnob from "./MiniKnob.svelte";
@@ -157,7 +157,7 @@
     </div>
     <div
       class="strips"
-      use:rove
+      use:rove={{ tab: "each" }}
       {@attach (el) => {
         el.addEventListener("keydown", stripKey);
         return () => el.removeEventListener("keydown", stripKey);

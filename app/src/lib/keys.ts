@@ -2,9 +2,9 @@
 //
 // - A rove group (`use:rove`): ← and → move between its controls; ↑ and ↓
 //   are left to the control (knobs and number cells step their value).
-//   Panels (`use:rove={{ tab: "each" }}`) leave Tab visiting every control
-//   in reading order. Big groups (the parts table, the mixer's strips) are
-//   one Tab stop, entered at the control last used.
+//   Groups with `{ tab: "each" }` (panels, the parts table, the mixer's
+//   strips) leave Tab visiting every control in reading order; others (the
+//   keygroup tabs) are one Tab stop, entered at the control last used.
 // - Panes (`data-pane`) are the large regions of a view; ⌘[ and ⌘] (Ctrl
 //   elsewhere), or F6 and Shift+F6, move focus between them.
 
@@ -59,7 +59,7 @@ export function rove(group: HTMLElement, opts: { tab?: "each" | "one" } = {}) {
   }
 
   sync();
-  // Big groups (the multi's parts table) change often; sync once a frame.
+  // Groups can change often; sync once a frame.
   let queued = false;
   const observer = new MutationObserver(() => {
     if (queued) return;

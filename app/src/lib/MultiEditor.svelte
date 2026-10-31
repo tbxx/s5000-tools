@@ -531,7 +531,7 @@
                 <th>Range</th>
               </tr>
             </thead>
-            <tbody use:rove>
+            <tbody use:rove={{ tab: "each" }}>
               {#each rows as { p, i } (i)}
                 <tr
                   class:selected={chosen.has(i)}
