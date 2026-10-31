@@ -226,10 +226,16 @@
       <ul>
         <li>Drag a number up or down (Shift for fine steps), or double-click it to type.</li>
         <li>
-          <b>Table | Mixer</b> switches between the table and a mixing desk: a strip per part with its program, MIDI
+          <b>Table | Mixer | Keys</b> switches between the table, a mixing desk and the key ranges. The mixing desk: a strip per part with its program, MIDI
           channel, output, effects bus, send and pan knobs, key range, mute and solo, and a level fader. The desk shows
           32 parts at a time; for bigger multis, the <b>All parts</b> overview above it picks the block. In the desk, ←
           and → move through the controls and {opt}← {opt}→ to the same control in the next strip.
+        </li>
+        <li>
+          <b>Keys</b> shows each part's key range as a bar over a keyboard, which stays at the bottom of the pane and
+          lights the current part's keys. Drag a bar's end (the dark grips) to move that end, the bar to move the whole
+          range, or click the empty track to bring the nearer end there. The <b>Low</b> and <b>High</b> boxes either side
+          take a typed note (double-click or Enter). On a grip, ↑ ↓ move that end a semitone, Shift an octave.
         </li>
         <li>
           Select several parts to change them together: {mod}-click adds or removes a part, {shift}-click selects a

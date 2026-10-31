@@ -10,6 +10,7 @@
   import { SvelteSet } from "svelte/reactivity";
   import { open } from "@tauri-apps/plugin-dialog";
   import Control from "./Control.svelte";
+  import KeysView from "./KeysView.svelte";
   import MixerView from "./MixerView.svelte";
   import NumCell from "./NumCell.svelte";
   import { api, message, type MultiLive, type MultiView, type ParamInfo } from "./api";
@@ -429,8 +430,8 @@
       </select>
     </label>
     <span class="segments views" role="radiogroup" aria-label="Show the parts as">
-      {#each [["table", "Table"], ["mixer", "Mixer"]] as [id, name]}
-        <button role="radio" aria-checked={mode === id} class:active={mode === id} onclick={() => app.save({ multiView: id as "table" | "mixer" })}>{name}</button>
+      {#each [["table", "Table"], ["mixer", "Mixer"], ["keys", "Keys"]] as [id, name]}
+        <button role="radio" aria-checked={mode === id} class:active={mode === id} onclick={() => app.save({ multiView: id as "table" | "mixer" | "keys" })}>{name}</button>
       {/each}
     </span>
     <button onclick={newMulti} disabled={!app.connected || loading}>New multi…</button>
@@ -500,6 +501,18 @@
         {usedOnly}
         {programChoices}
         {assign}
+      />
+    {:else if mode === "keys"}
+      <KeysView
+        {view}
+        valueOf={(p, id) => valueOf(p, id)}
+        write={(p, id, v) => write(p, id, v)}
+        {info}
+        {editable}
+        {sel}
+        {chosen}
+        onselect={select}
+        {usedOnly}
       />
     {:else}
       <div class="layout">
