@@ -450,6 +450,111 @@
   --field-rule: #8c8062;
 }
 
+/* Ice: cool blue-grey paper, slate signage, a clear blue accent. */
+[data-theme="ice"] {
+  color-scheme: light;
+  --mta-red: #c94a4a;
+  --mta-green: #2f8f6a;
+  --mta-blue: #2a6fb8;
+  --mta-orange: #d9822b;
+  --mta-yellow: #c9a227;
+  --mta-purple: #7a5fb3;
+  --mta-lime: #6fa83a;
+  --mta-grey: #8a97a3;
+  --mta-brown: #8a6a4a;
+  --bg: #dde4ea;
+  --surface: #e8eef3;
+  --surface-2: #ccd6df;
+  --rule: #17212b;
+  --rule-soft: #b8c5d1;
+  --text: #17212b;
+  --muted: #56636f;
+  --sign-bg: #2c3e50;
+  --sign-text: #eef3f7;
+  --sign-muted: #9fb0c0;
+  --sign-rule: #eef3f7;
+  --accent: #2a7fbf;
+  --accent-text: #ffffff;
+  --select: #2a7fbf;
+  --select-text: #ffffff;
+  --select-soft: #c3d8ea;
+  --lcd-bg: #cfe3ef;
+  --lcd-fg: #0f2233;
+  --lcd-edge: #17212b;
+  --field-bg: #f4f7fa;
+  --field-rule: #7f8e9c;
+}
+
+/* Moss: dark green-grey, soft greens, a lichen yellow accent. */
+[data-theme="moss"] {
+  color-scheme: dark;
+  --mta-red: #e07060;
+  --mta-green: #7cc36a;
+  --mta-blue: #6fa0d8;
+  --mta-orange: #e09a50;
+  --mta-yellow: #e0cf6a;
+  --mta-purple: #b08ac8;
+  --mta-lime: #c8d65a;
+  --mta-grey: #8f9a8c;
+  --mta-brown: #b08a5e;
+  --bg: #1f2620;
+  --surface: #252d26;
+  --surface-2: #2f3830;
+  --rule: #a9b8a6;
+  --rule-soft: #3b463c;
+  --text: #dfe8dc;
+  --muted: #93a191;
+  --sign-bg: #151b16;
+  --sign-text: #e5eee2;
+  --sign-muted: #8c9a8a;
+  --sign-rule: #e5eee2;
+  --accent: #c8d65a;
+  --accent-text: #1a2018;
+  --select: #8fc06a;
+  --select-text: #141a13;
+  --select-soft: #3a4a32;
+  --lcd-bg: #141a14;
+  --lcd-fg: #b8e07a;
+  --lcd-edge: #4a574a;
+  --field-bg: #1a201b;
+  --field-rule: #5e6d5e;
+}
+
+/* Midnight: deep navy, bright clip colours, a cyan accent. */
+[data-theme="midnight"] {
+  color-scheme: dark;
+  --mta-red: #f06a7a;
+  --mta-green: #4fd1a0;
+  --mta-blue: #5b9bff;
+  --mta-orange: #ffa25c;
+  --mta-yellow: #f2d46b;
+  --mta-purple: #a98bff;
+  --mta-lime: #a8e05f;
+  --mta-grey: #8592ad;
+  --mta-brown: #c9946a;
+  --bg: #0f1626;
+  --surface: #141c2f;
+  --surface-2: #1c2640;
+  --rule: #9fb2d6;
+  --rule-soft: #26324d;
+  --text: #dde6f7;
+  --muted: #8592ad;
+  --sign-bg: #0a0f1c;
+  --sign-text: #e3eaf8;
+  --sign-muted: #7c89a6;
+  --sign-rule: #e3eaf8;
+  --accent: #3fc6e0;
+  --accent-text: #0a0f1c;
+  --select: #3fc6e0;
+  --select-text: #0a0f1c;
+  --select-soft: #1d3550;
+  --lcd-bg: #08101e;
+  --lcd-fg: #7fe3f2;
+  --lcd-edge: #34446a;
+  --field-bg: #0c1322;
+  --field-rule: #4a5878;
+}
+
 * {
   box-sizing: border-box;
 }

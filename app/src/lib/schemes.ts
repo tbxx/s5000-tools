@@ -13,7 +13,10 @@ export type SchemeId =
   | "graphite"
   | "pewter"
   | "dusk"
-  | "wheat";
+  | "wheat"
+  | "ice"
+  | "moss"
+  | "midnight";
 
 export const SCHEMES: { id: SchemeId; name: string }[] = [
   { id: "system", name: "System" },
@@ -28,6 +31,9 @@ export const SCHEMES: { id: SchemeId; name: string }[] = [
   { id: "pewter", name: "Pewter" },
   { id: "dusk", name: "Dusk" },
   { id: "wheat", name: "Wheat" },
+  { id: "ice", name: "Ice" },
+  { id: "moss", name: "Moss" },
+  { id: "midnight", name: "Midnight" },
 ];
 
 // Also kept in localStorage, so the scheme is right from the first frame,

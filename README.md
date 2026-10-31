@@ -38,7 +38,7 @@ replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
   keyboard; Help lists the shortcuts.
 - **Preferences** (⌘, / Ctrl+,): interface size (also ⌘+ / ⌘−, Ctrl on
   Windows and Linux), colour scheme (System, Light, Dark, Studio, Ivory, High
-  contrast, Le Corbusier, Mies, Graphite, Pewter, Dusk, Wheat) and meter style, each with a live preview, and connecting to
+  contrast, Le Corbusier, Mies, Graphite, Pewter, Dusk, Wheat, Ice, Moss, Midnight) and meter style, each with a live preview, and connecting to
   samplers automatically when the app starts or when one is switched on.
 - **`s5k`**, a command-line tool for the same jobs; see
   [docs/cli.md](docs/cli.md).
