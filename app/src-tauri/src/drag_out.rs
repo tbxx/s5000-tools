@@ -9,22 +9,8 @@
 //!
 //! Other systems keep the fetch-first drag (`tauri-plugin-drag`).
 
-use serde::Serialize;
-
 use crate::transfer::{Source, file_name};
 use crate::worker::CmdResult;
-
-#[derive(Clone, Serialize)]
-pub struct DropEvent {
-    pub token: u32,
-    pub folder: std::path::PathBuf,
-}
-
-#[derive(Clone, Serialize)]
-pub struct EndEvent {
-    pub token: u32,
-    pub dropped: bool,
-}
 
 /// The file name each item is written under, as the transfers will write it.
 fn names(items: &[Source]) -> CmdResult<Vec<String>> {
@@ -96,7 +82,17 @@ mod imp {
     };
     use tauri::Emitter;
 
-    use super::{DropEvent, EndEvent};
+    #[derive(Clone, serde::Serialize)]
+    struct DropEvent {
+        token: u32,
+        folder: PathBuf,
+    }
+
+    #[derive(Clone, serde::Serialize)]
+    struct EndEvent {
+        token: u32,
+        dropped: bool,
+    }
     use crate::worker::CmdResult;
 
     /// `NSUserCancelledError`: the Finder drops the promise without a message.
