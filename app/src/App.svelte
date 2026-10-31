@@ -10,6 +10,7 @@
   import { queue } from "./lib/queue.svelte";
   import { app } from "./lib/state.svelte";
   import { api, usbLabel, type UsbDevice } from "./lib/api";
+  import { cyclePane } from "./lib/keys";
   import { applyScheme } from "./lib/schemes";
   import { applyZoom, autoConnect, connectAll, modKey, modLabel, setZoom, stepZoom } from "./lib/prefs.svelte";
 
@@ -81,6 +82,9 @@
   });
 
   function keyDown(e: KeyboardEvent) {
+    // Panes: F6 / Shift+F6, or ⌘] / ⌘[.
+    if (e.key === "F6") return void (e.preventDefault(), cyclePane(e.shiftKey ? -1 : 1));
+    if (modKey(e) && (e.key === "]" || e.key === "[")) return void (e.preventDefault(), cyclePane(e.key === "]" ? 1 : -1));
     if (!modKey(e) || e.altKey) return;
     // Zoom: ⌘+ (also ⌘= and ⌘⇧=), ⌘−, ⌘0.
     if (e.key === "=" || e.key === "+") return void (e.preventDefault(), stepZoom(1));

@@ -710,7 +710,7 @@
       </span>
     </h3>
     <div class="path" title={folder}><bdi>{folder || "No folder chosen"}</bdi></div>
-    <div class="list" role="listbox" aria-multiselectable="true" tabindex="0" onkeydown={macKey}>
+    <div class="list" role="listbox" aria-multiselectable="true" tabindex="0" data-pane onkeydown={macKey}>
       {#if !folder}
         <p class="empty">Choose a folder, or drop one here from the Finder.</p>
       {:else}
@@ -751,7 +751,7 @@
   </section>
 </div>
 
-<section class="queue">
+<section class="queue" data-pane>
   <h3 class="sign">
     <span>Queue</span>
     {#if queue.pending}<span class="muted-sign">{queue.pending} pending</span>{/if}

@@ -13,6 +13,7 @@
   import { api, message, type MultiLive, type MultiView, type ParamInfo } from "./api";
   import { dialogs } from "./dialogs.svelte";
   import { noteName } from "./format";
+  import { rove } from "./keys";
   import { formatPart } from "./partFormat";
   import { app } from "./state.svelte";
 
@@ -259,6 +260,25 @@
     }
   }
 
+  /** ⌥↑/⌥↓: the part above/below. In the table, focus keeps its column. */
+  function editorKey(e: KeyboardEvent) {
+    if (!e.altKey || e.metaKey || e.ctrlKey || !view) return;
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    const up = e.key === "ArrowUp";
+    const td = (document.activeElement as HTMLElement | null)?.closest("tbody td");
+    if (td) {
+      const tr = td.parentElement!;
+      const row = (up ? tr.previousElementSibling : tr.nextElementSibling) as HTMLElement | null;
+      const cell = row?.children[[...tr.children].indexOf(td)];
+      cell?.querySelector<HTMLElement>('[role="spinbutton"], select, button')?.focus();
+      return;
+    }
+    const at = rows.findIndex((r) => r.i === sel);
+    const next = rows[at + (up ? -1 : 1)];
+    if (next) sel = next.i;
+  }
+
   /** Programs to offer for a part: memory, plus the part's own if it is not loaded. */
   function programChoices(current: string | null): string[] {
     const names = app.memory.programs.map((x) => x.name);
@@ -327,8 +347,10 @@
   {/if}
 {/snippet}
 
+<svelte:window onkeydown={editorKey} />
+
 <div class="editor">
-  <div class="bar">
+  <div class="bar" data-pane>
     <label>
       Multi in memory
       <select bind:value={picked} onchange={() => loadFromMemory(picked)} disabled={!app.connected || loading}>
@@ -354,7 +376,7 @@
       are not stored in the file{app.connected ? "" : "; connect to read them live"}.
     </p>
   {:else}
-    <section class="panel multi" style:--route="var(--mta-grey)">
+    <section class="panel multi" style:--route="var(--mta-grey)" data-pane use:rove>
       <h3 class="sign">Multi</h3>
       <div class="cells">
         <div class="field">
@@ -391,7 +413,7 @@
     </section>
 
     <div class="layout">
-      <div class="table-wrap">
+      <div class="table-wrap" data-pane>
         <table class="parts">
           <colgroup>
             <col class="w-part" />
@@ -419,9 +441,9 @@
               <th>Range</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody use:rove>
             {#each rows as { p, i } (i)}
-              <tr class:selected={i === sel} class:empty-part={!p.program} onpointerdown={() => (sel = i)}>
+              <tr class:selected={i === sel} class:empty-part={!p.program} onpointerdown={() => (sel = i)} onfocusin={() => (sel = i)}>
                 <td class="partno"><button class="pick" onclick={() => (sel = i)} aria-label="Part {i + 1}">{i + 1}</button></td>
                 <td>{@render programPicker(i, p.program, false)}</td>
                 {#each groups as g}
@@ -441,7 +463,7 @@
       </div>
 
       {#if part}
-        <aside class="detail">
+        <aside class="detail" data-pane>
           <h3 class="sign head" style:--route="var(--mta-purple)">
             Part {sel + 1}
             <span class="sign-muted">{part.program ?? "no program"}</span>
@@ -455,7 +477,7 @@
             {@render programPicker(sel, part.program, true)}
           </div>
           {#each detail as d}
-            <section class="panel" style:--route="var(--mta-{d.route})">
+            <section class="panel" style:--route="var(--mta-{d.route})" use:rove>
               <h3 class="sign">{d.title}</h3>
               <div class="cells">
                 {#each d.ids as id}

@@ -34,7 +34,7 @@
   }
 </script>
 
-<div class="tree" role="tree" aria-multiselectable="true" tabindex="0" {onkeydown}>
+<div class="tree" role="tree" aria-multiselectable="true" tabindex="0" data-pane {onkeydown}>
   {#if !rows.length}
     <p class="empty">No sampler connected. Press + to add a USB sampler or a simulator.</p>
   {/if}

@@ -9,6 +9,7 @@
   import EnvGraph from "./EnvGraph.svelte";
   import { api, message, type ParamInfo, type ProgramView, type Values } from "./api";
   import { noteName } from "./format";
+  import { rove } from "./keys";
   import { app } from "./state.svelte";
 
   let { initial }: { initial?: string } = $props();
@@ -203,6 +204,18 @@
     }
   }
 
+  /** ⌥↑/⌥↓: previous/next keygroup. ⌥←/⌥→: previous/next zone. */
+  function editorKey(e: KeyboardEvent) {
+    if (!e.altKey || e.metaKey || e.ctrlKey || !view) return;
+    const zones = keygroup?.zones.length ?? 0;
+    if (e.key === "ArrowUp" && kg > 0) selectKeygroup(kg - 1);
+    else if (e.key === "ArrowDown" && kg < view.keygroups.length - 1) selectKeygroup(kg + 1);
+    else if (e.key === "ArrowLeft" && zone > 0) zone--;
+    else if (e.key === "ArrowRight" && zone < zones - 1) zone++;
+    else return;
+    e.preventDefault();
+  }
+
   function selectKeygroup(i: number) {
     kg = i;
     readLive();
@@ -285,7 +298,7 @@
 {/snippet}
 
 {#snippet panel(p: Panel)}
-  <section class="panel" class:env={p.env} style:--route="var(--mta-{p.route})">
+  <section class="panel" class:env={p.env} style:--route="var(--mta-{p.route})" use:rove>
     <h3 class="sign">{p.title}</h3>
     {#if p.env}
       <EnvGraph kind={p.env} get={valueOf} {catalog} onchange={editable ? write : undefined} />
@@ -296,8 +309,10 @@
   </section>
 {/snippet}
 
+<svelte:window onkeydown={editorKey} />
+
 <div class="editor">
-  <div class="bar">
+  <div class="bar" data-pane>
     <label>
       Program in memory
       <select bind:value={picked} onchange={() => loadFromMemory(picked)} disabled={!app.connected || loading}>
@@ -322,7 +337,7 @@
       file{app.connected ? "" : "; connect to read them live"}.
     </p>
   {:else}
-    <div class="grid program">
+    <div class="grid program" data-pane>
       {#each programPanels as p}{@render panel(p)}{/each}
     </div>
 
@@ -352,7 +367,7 @@
       </div>
     </div>
 
-    <div class="tabs">
+    <div class="tabs" data-pane use:rove>
       {#each view.keygroups as _, i}
         <button class:active={i === kg} onclick={() => selectKeygroup(i)}>{i + 1}</button>
       {/each}
@@ -363,9 +378,9 @@
       {/if}
     </div>
 
-    <div class="grid keygroup">
+    <div class="grid keygroup" data-pane>
       {#each keygroupPanels as p}{@render panel(p)}{/each}
-      <section class="panel zone" style:--route="var(--mta-lime)">
+      <section class="panel zone" style:--route="var(--mta-lime)" use:rove>
         <h3 class="sign">Zone</h3>
         <div class="zone-tabs">
           {#each keygroup?.zones ?? [] as z, i}
@@ -380,7 +395,7 @@
     </div>
 
     {#if other.length}
-      <section class="panel other" style:--route="var(--mta-grey)">
+      <section class="panel other" style:--route="var(--mta-grey)" use:rove>
         <h3 class="sign">Other</h3>
         <div class="cells">
           {#each other as p}

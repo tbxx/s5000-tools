@@ -73,7 +73,7 @@
   }
 
   function key(e: KeyboardEvent) {
-    if (!editable || value === undefined) return;
+    if (!editable || value === undefined || e.altKey || e.metaKey || e.ctrlKey) return;
     const step = e.key === "ArrowUp" ? 1 : e.key === "ArrowDown" ? -1 : 0;
     if (step) {
       e.preventDefault();

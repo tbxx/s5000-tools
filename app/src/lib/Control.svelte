@@ -1,8 +1,9 @@
 <script lang="ts">
   // One parameter: a knob for numbers, an LCD box (or menu) for value lists, a
   // switch for on/off. Editable when `onchange` is given: drag the knob up or
-  // down, double-click to type a value. The knob's arc is in the panel's route
-  // colour (--route).
+  // down, double-click to type a value. From the keyboard: ↑/↓ step (Shift for
+  // a tenth of the range), Page Up/Down a tenth, Home/End the ends, Enter to
+  // type. The knob's arc is in the panel's route colour (--route).
   import type { ParamInfo } from "./api";
   import { dialogs } from "./dialogs.svelte";
   import { format } from "./format";
@@ -75,6 +76,38 @@
     local = null;
   }
 
+  function key(e: KeyboardEvent) {
+    // With ⌥ or ⌘ the keys belong to the editor (keygroups, parts) or the app.
+    if (!editable || value === undefined || e.altKey || e.metaKey || e.ctrlKey) return;
+    const coarse = Math.max(1, Math.round((max - min) / 10));
+    const from = local ?? value;
+    const to: Record<string, number> = {
+      ArrowUp: from + (e.shiftKey ? coarse : 1),
+      ArrowDown: from - (e.shiftKey ? coarse : 1),
+      PageUp: from + coarse,
+      PageDown: from - coarse,
+      Home: min,
+      End: max,
+    };
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      void type();
+    } else if (e.key in to) {
+      e.preventDefault();
+      const next = Math.min(max, Math.max(min, to[e.key]));
+      if (next !== from) {
+        local = next;
+        live.push(next);
+      }
+    }
+  }
+
+  function keyUp() {
+    if (local === null) return;
+    live.done(local);
+    local = null;
+  }
+
   async function type() {
     if (!editable) return;
     const r = await dialogs.ask(info.label, [{ label: `${min} to ${max}`, value: String(value ?? "") }], "Set");
@@ -94,12 +127,15 @@
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={shown}
-      tabindex="-1"
+      aria-disabled={!editable}
+      tabindex={editable ? 0 : -1}
       onpointerdown={down}
       onpointermove={move}
       onpointerup={up}
       onpointercancel={up}
       ondblclick={type}
+      onkeydown={key}
+      onkeyup={keyUp}
     >
       <path d={arc(-SWEEP / 2, SWEEP / 2)} class="track" />
       {#if shown !== undefined}
@@ -164,6 +200,10 @@
   }
   svg.editable {
     cursor: ns-resize;
+  }
+  svg:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
   .track {
     fill: none;
