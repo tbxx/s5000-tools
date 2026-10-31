@@ -67,6 +67,14 @@
         <h3>Meters</h3>
         <MeterStylePicker value={meterStyle.id} onpick={(id: MeterKind) => app.save({ meterStyle: id })} />
         <p class="hint">{meterStyle.name}: {meterStyle.note}</p>
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={app.settings.meterShowUpper !== false}
+            onchange={(e) => app.save({ meterShowUpper: e.currentTarget.checked })}
+          />
+          Show outputs 9–16 <small>(they need the output expander board)</small>
+        </label>
       </section>
 
       <section>
@@ -158,6 +166,18 @@
   .choice span {
     display: grid;
     gap: 2px;
+  }
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .check small {
+    font-weight: 400;
+    color: var(--muted);
   }
   .choice small {
     color: var(--muted);

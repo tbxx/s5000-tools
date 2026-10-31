@@ -15,6 +15,8 @@
   const kind = $derived(style.id);
   const peakHold = $derived(app.settings.meterPeakHold ?? true);
   const vuRef = $derived(app.settings.meterVuRef ?? -18);
+  // Outputs 9-16 exist only with the output expander board.
+  const outputs = $derived(app.settings.meterShowUpper === false ? 8 : 16);
   const marks = $derived(scaleMarks(kind));
 
   // 16 outputs, then record L and R. Readings arrive every ~60 ms; the
@@ -87,7 +89,7 @@
               {#each marks as m}<span style:bottom="{m.at * 100}%">{m.label}</span>{/each}
             </div>
           </div>
-          {#each ch.slice(0, 16) as c, i}
+          {#each ch.slice(0, outputs) as c, i}
             <div class="cell" class:twin={kind === "twin"}><Meter {kind} ch={c} {peakHold} label={LABELS[i]} /></div>
           {/each}
         </div>
@@ -106,7 +108,7 @@
       <section class="group outputs">
         <h3 class="sign">Outputs</h3>
         <div class="grid">
-          {#each ch.slice(0, 16) as c, i}<Meter {kind} ch={c} label={LABELS[i]} />{/each}
+          {#each ch.slice(0, outputs) as c, i}<Meter {kind} ch={c} label={LABELS[i]} />{/each}
         </div>
       </section>
       <section class="group record">

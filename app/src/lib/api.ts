@@ -197,6 +197,8 @@ export interface Settings {
   meterStyle?: import("./meters/styles").MeterKind;
   meterPeakHold?: boolean;
   meterVuRef?: number;
+  /** Show outputs 9-16 (they need the output expander board). */
+  meterShowUpper?: boolean;
 }
 
 type Id = number | undefined;
