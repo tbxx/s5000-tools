@@ -29,7 +29,7 @@ a component (meter faces and LEDs, which imitate hardware, are the exception).
 | `--accent`, `--accent-text` | Active state and focus (MTA blue). |
 | `--select`, `--select-text`, `--select-soft` | Selected rows: focused, and unfocused (soft). |
 | `--ok`, `--bad`, `--warn` | Green, red and yellow for status. |
-| `--led` | A lit mode LED. |
+| `--led` | A lit mode key's light (amber). |
 | `--route` | The current panel's route colour, read by knobs and graphs. Set it on a panel: `style:--route="var(--mta-green)"`. |
 | `--lcd-bg`, `--lcd-fg`, `--lcd-edge` | The sampler's screen. |
 | `--field-bg`, `--field-rule` | Inputs and selects. |

@@ -33,7 +33,7 @@
   --ok: var(--mta-green);
   --bad: var(--mta-red);
   --warn: var(--mta-yellow);
-  --led: var(--mta-red);
+  --led: #f4a300; /* amber, like the sampler's */
   --route: var(--accent); /* set per panel; knobs and graphs use it */
   --focus: var(--text); /* the keyboard focus ring */
 

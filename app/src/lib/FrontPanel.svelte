@@ -224,10 +224,7 @@
 
     <div class="modes">
       {#each modeKeys as k}
-        <div class="mode">
-          <span class="led" class:lit={(leds >> (k.code - 0x40)) & 1}></span>
-          {@render key(k)}
-        </div>
+        <div class="mode">{@render key(k, (leds >> (k.code - 0x40)) & 1 ? "lit" : "")}</div>
       {/each}
     </div>
 
@@ -413,16 +410,23 @@
     line-height: 1.1;
     min-height: 38px;
   }
-  .led {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    border: 1px solid var(--rule-soft);
-    background: transparent;
+  /* The key's light: a small window in its top left corner, as on the
+     sampler, where the light is in the button. Empty until lit. */
+  .mode .key {
+    position: relative;
   }
-  .led.lit {
-    border-color: var(--led);
+  .mode .key::before {
+    content: "";
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 10px;
+    height: 4px;
+    border: 1px solid var(--rule-soft);
+  }
+  .mode .key.lit::before {
     background: var(--led);
+    border-color: var(--led);
   }
   .foot {
     display: flex;
