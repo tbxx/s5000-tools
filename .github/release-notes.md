@@ -18,6 +18,4 @@ click to open an app that isn't signed by Apple. Linux needs a udev rule.
 Windows needs the WinUSB driver, which replaces Akai's driver until you
 switch back.
 
-Disk operations (load, save, delete on the sampler's disks) are
-**experimental** and the app asks before the first one. Setting a multi's
-MIDI program number is untested on hardware.
+Setting a multi's MIDI program number is untested on hardware.

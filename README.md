@@ -15,8 +15,8 @@ replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
 |---|---|
 | ![The front panel: the sampler's live screen with its soft keys beside the rows](docs/images/front-panel.png) | ![Copying a multi with the programs and samples it uses](docs/images/dependencies.png) |
 | **Front panel**: the live screen; click a row or its key | **Dependencies**: programs and multis bring what they use |
-| ![The program editor](docs/images/program.png) | ![The multi editor](docs/images/multi.png) |
-| **Program editor**: every setting, live | **Multi editor**: the parts table, live |
+| ![The program editor](docs/images/program.png) | ![The multi editor's mixer view](docs/images/multi.png) |
+| **Program editor**: every setting, live | **Multi editor**: a mixing desk, a table or key ranges, live |
 
 ## What's here
 
