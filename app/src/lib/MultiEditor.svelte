@@ -537,8 +537,13 @@
 </div>
 
 <style>
+  /* At least the pane's height, so the mixer can take what is left of it. */
   .editor {
     padding: 12px 16px 20px;
+    box-sizing: border-box;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
   }
   .bar {
     display: flex;

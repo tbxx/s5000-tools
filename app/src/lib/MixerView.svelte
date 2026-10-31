@@ -222,8 +222,10 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+    /* Fills the rest of the pane (the editor is a flex column), and below
+       500 px the pane scrolls instead. */
+    flex: 1 1 auto;
     min-height: 500px;
-    height: calc(100vh - 270px);
   }
   .overview {
     display: flex;
