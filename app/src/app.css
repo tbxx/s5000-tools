@@ -9,17 +9,6 @@
   --font: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* Route colours (MTA). Bullets, active state, meters, LEDs only. */
-  --mta-red: #ee352e;
-  --mta-green: #00933c;
-  --mta-blue: #0039a6;
-  --mta-orange: #ff6319;
-  --mta-yellow: #fccc0a;
-  --mta-purple: #b933ad;
-  --mta-lime: #6cbe45;
-  --mta-grey: #a7a9ac;
-  --mta-brown: #996633;
-
   /* Surfaces and rules */
   --bg: #ffffff;
   --surface: #ffffff;
@@ -70,6 +59,22 @@
 
   font: 13px/1.35 var(--font);
   font-feature-settings: "tnum";
+}
+
+/* Route colours (MTA). Bullets, active state, meters, LEDs only. Set on every
+   scheme root too, so a Preferences tile doesn't inherit the current scheme's;
+   the last four schemes override them. */
+:root,
+[data-theme] {
+  --mta-red: #ee352e;
+  --mta-green: #00933c;
+  --mta-blue: #0039a6;
+  --mta-orange: #ff6319;
+  --mta-yellow: #fccc0a;
+  --mta-purple: #b933ad;
+  --mta-lime: #6cbe45;
+  --mta-grey: #a7a9ac;
+  --mta-brown: #996633;
 }
 
 /* Colour schemes (Preferences). "System" sets no data-theme and follows the
@@ -228,6 +233,151 @@
   --lcd-edge: #000000;
   --field-bg: #ffffff;
   --field-rule: #000000;
+}
+
+/* The schemes below also recolour the route colours, so panels, bullets and
+   meters take on the palette. Red, yellow and green keep their meaning. */
+
+/* Le Corbusier: the Polychromie architecturale. Lime-white walls, ultramarine
+   signage, oxide red, ochre and sky blue. */
+[data-theme="corbusier"] {
+  color-scheme: light;
+  --mta-red: #b5402f;
+  --mta-green: #4e7b55;
+  --mta-blue: #2e4a9e;
+  --mta-orange: #c96a32;
+  --mta-yellow: #dca83a;
+  --mta-purple: #7c5a8c;
+  --mta-lime: #8aa65a;
+  --mta-grey: #9c978c;
+  --mta-brown: #8a5a3a;
+  --bg: #f1ece1;
+  --surface: #f1ece1;
+  --surface-2: #e4dccb;
+  --rule: #23201c;
+  --rule-soft: #cfc4ad;
+  --text: #23201c;
+  --muted: #6b6457;
+  --sign-bg: #2e4a9e;
+  --sign-text: #f1ece1;
+  --sign-muted: #b9c3e0;
+  --sign-rule: #f1ece1;
+  --accent: #b5402f;
+  --accent-text: #ffffff;
+  --select: #2e4a9e;
+  --select-text: #ffffff;
+  --select-soft: #d5dbea;
+  --lcd-bg: #9fc0d6;
+  --lcd-fg: #1c2a3a;
+  --lcd-edge: #23201c;
+  --field-bg: #f8f5ee;
+  --field-rule: #8e8573;
+}
+
+/* Mies van der Rohe: the Barcelona Pavilion. Travertine, black steel,
+   green Tinos marble, golden onyx and the red curtain. */
+[data-theme="mies"] {
+  color-scheme: light;
+  --mta-red: #9e2a2b;
+  --mta-green: #3f5f4e;
+  --mta-blue: #34495e;
+  --mta-orange: #b0753c;
+  --mta-yellow: #c9a45c;
+  --mta-purple: #5e4b5a;
+  --mta-lime: #7d8a63;
+  --mta-grey: #9a9690;
+  --mta-brown: #7a5c3e;
+  --bg: #ebe5d9;
+  --surface: #f3efe7;
+  --surface-2: #e0d8c8;
+  --rule: #141414;
+  --rule-soft: #cbc2b0;
+  --text: #141414;
+  --muted: #625d55;
+  --sign-bg: #141414;
+  --sign-text: #f3efe7;
+  --sign-muted: #a49d90;
+  --sign-rule: #c9a45c;
+  --accent: #3f5f4e;
+  --accent-text: #ffffff;
+  --select: #3f5f4e;
+  --select-text: #ffffff;
+  --select-soft: #d3dbd2;
+  --lcd-bg: #e6d3a6;
+  --lcd-fg: #2a2116;
+  --lcd-edge: #141414;
+  --field-bg: #faf8f3;
+  --field-rule: #8f877a;
+}
+
+/* Neon: 1980s. Midnight purple, hot pink signage, electric cyan. */
+[data-theme="neon"] {
+  color-scheme: dark;
+  --mta-red: #ff2a6d;
+  --mta-green: #05ffa1;
+  --mta-blue: #01cdfe;
+  --mta-orange: #ff8a3d;
+  --mta-yellow: #fffb96;
+  --mta-purple: #b967ff;
+  --mta-lime: #9dff5c;
+  --mta-grey: #8c7fb0;
+  --mta-brown: #d1766a;
+  --bg: #1a1033;
+  --surface: #1a1033;
+  --surface-2: #2a1a4f;
+  --rule: #ff71ce;
+  --rule-soft: #3d2a6b;
+  --text: #f6eaff;
+  --muted: #a993d6;
+  --sign-bg: #ff71ce;
+  --sign-text: #1a1033;
+  --sign-muted: #5b2a6e;
+  --sign-rule: #1a1033;
+  --accent: #01cdfe;
+  --accent-text: #1a1033;
+  --select: #b967ff;
+  --select-text: #ffffff;
+  --select-soft: #3a2470;
+  --lcd-bg: #0d0820;
+  --lcd-fg: #ff71ce;
+  --lcd-edge: #01cdfe;
+  --field-bg: #120b26;
+  --field-rule: #7a5fb8;
+}
+
+/* Cyberpunk: black glass, warning yellow signage, cyan HUD, red alerts. */
+[data-theme="cyberpunk"] {
+  color-scheme: dark;
+  --mta-red: #ff003c;
+  --mta-green: #00ff9c;
+  --mta-blue: #00e5ff;
+  --mta-orange: #ff6a00;
+  --mta-yellow: #fcee0a;
+  --mta-purple: #c000ff;
+  --mta-lime: #b6ff00;
+  --mta-grey: #6f7a80;
+  --mta-brown: #b0643a;
+  --bg: #08090b;
+  --surface: #0c0e11;
+  --surface-2: #151a1f;
+  --rule: #00e5ff;
+  --rule-soft: #1f2a30;
+  --text: #d9f7f5;
+  --muted: #6f8f94;
+  --sign-bg: #fcee0a;
+  --sign-text: #08090b;
+  --sign-muted: #5a5500;
+  --sign-rule: #08090b;
+  --accent: #fcee0a;
+  --accent-text: #08090b;
+  --select: #ff003c;
+  --select-text: #ffffff;
+  --select-soft: #3a0b16;
+  --lcd-bg: #001418;
+  --lcd-fg: #00e5ff;
+  --lcd-edge: #00e5ff;
+  --field-bg: #050607;
+  --field-rule: #2e5a62;
 }
 
 * {

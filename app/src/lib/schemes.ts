@@ -1,7 +1,17 @@
 // Colour schemes: token sets in app.css under [data-theme]. "system" sets no
 // attribute and follows the OS's light/dark setting.
 
-export type SchemeId = "system" | "light" | "dark" | "studio" | "ivory" | "contrast";
+export type SchemeId =
+  | "system"
+  | "light"
+  | "dark"
+  | "studio"
+  | "ivory"
+  | "contrast"
+  | "corbusier"
+  | "mies"
+  | "neon"
+  | "cyberpunk";
 
 export const SCHEMES: { id: SchemeId; name: string }[] = [
   { id: "system", name: "System" },
@@ -10,6 +20,10 @@ export const SCHEMES: { id: SchemeId; name: string }[] = [
   { id: "studio", name: "Studio" },
   { id: "ivory", name: "Ivory" },
   { id: "contrast", name: "High contrast" },
+  { id: "corbusier", name: "Le Corbusier" },
+  { id: "mies", name: "Mies" },
+  { id: "neon", name: "Neon 80s" },
+  { id: "cyberpunk", name: "Cyberpunk" },
 ];
 
 // Also kept in localStorage, so the scheme is right from the first frame,
