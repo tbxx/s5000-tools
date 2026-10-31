@@ -203,6 +203,10 @@
           The keyboard strip shows each keygroup's key range; click one, or use the numbered tabs, to edit that
           keygroup. Zone tabs pick the zone (sample layer).
         </li>
+        <li>
+          <b>Edit all</b> (beside the keygroup tabs) sends keygroup edits to every keygroup, and zone edits to the same
+          zone in every keygroup. It turns itself off when you open another program.
+        </li>
         <li>Values greyed out are not stored in an .akp file; connect to read them live.</li>
       </ul>
     </section>

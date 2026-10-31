@@ -132,6 +132,9 @@
   let source = $state<{ memory: string } | { file: string } | null>(null);
   let live = $state<Values>({});
   let kg = $state(0);
+  /** Keygroup and zone edits go to every keygroup (the zone: the same zone
+   *  number in each), like the sampler's "ALL" keygroup. Off each time. */
+  let allKeygroups = $state(false);
   let zone = $state(0);
   let loading = $state(false);
   let picked = $state("");
@@ -175,6 +178,7 @@
     try {
       view = await api.readProgram(name);
       source = { memory: name };
+      allKeygroups = false;
       onitem?.(name);
       kg = 0;
       zone = 0;
@@ -244,18 +248,26 @@
     const [id, n] = ref.split("#");
     const info = catalog.get(id)!;
     const selector = info.scope === "zone" ? zone + 1 : n ? parseInt(n) : null;
+    const targets = info.scope !== "program" && allKeygroups ? view.keygroups.map((_, i) => i) : [kg];
     // Show the new value at once.
-    if (info.scope === "zone" && keygroup?.zones[zone] && ref in keygroup.zones[zone].values)
-      keygroup.zones[zone].values[ref] = value;
-    else if (info.scope === "program" && ref in view.values) view.values[ref] = value;
-    else if (info.scope === "keygroup" && keygroup && ref in keygroup.values) keygroup.values[ref] = value;
-    else live[info.scope === "zone" ? `${ref}#${zone + 1}` : ref] = value;
-    try {
-      await api.writeParam(source.memory, id, info.scope === "program" ? null : kg, selector, value);
-    } catch (e) {
-      app.fail(`${info.label}: ${message(e)}`);
+    for (const k of targets) {
+      const g = view.keygroups[k];
+      if (info.scope === "zone" && g?.zones[zone] && ref in g.zones[zone].values) g.zones[zone].values[ref] = value;
+      else if (info.scope === "program" && ref in view.values) view.values[ref] = value;
+      else if (info.scope === "keygroup" && g && ref in g.values) g.values[ref] = value;
+      else if (k === kg) live[info.scope === "zone" ? `${ref}#${zone + 1}` : ref] = value;
+    }
+    for (const k of targets) {
+      try {
+        await api.writeParam(source.memory, id, info.scope === "program" ? null : k, selector, value);
+      } catch (e) {
+        const where = targets.length > 1 ? `Keygroup ${k + 1} ` : "";
+        app.fail(`${where}${info.label}: ${message(e)}`);
+        return;
+      }
     }
   }
+
 
   /** Labels without the panel's own name ("Amp env attack" in Amp env is "Attack"). */
   function shortLabel(info: ParamInfo, ref: string) {
@@ -371,11 +383,16 @@
         <!-- The keygroup's tabs, range and the keyboard stay in view as the pane scrolls. -->
         <div class="pane-head">
           <h2>Keygroup</h2>
-          <div class="tabs" use:rove>
+          <div class="tabs" class:all={allKeygroups} use:rove>
             {#each view.keygroups as _, i}
               <button class:active={i === kg} onclick={() => selectKeygroup(i)}>{i + 1}</button>
             {/each}
           </div>
+          {#if editable && view.keygroups.length > 1}
+            <label class="all-toggle" title="Keygroup and zone edits go to every keygroup (zones: the same zone number in each)">
+              <input type="checkbox" bind:checked={allKeygroups} /> Edit all
+            </label>
+          {/if}
           {#if keygroup}
             <span class="muted range-text">{noteName(ranges[kg][0])} – {noteName(ranges[kg][1])}</span>
           {/if}
@@ -391,7 +408,7 @@
                 width={keyX(hi)[0] + keyX(hi)[1] - keyX(lo)[0]}
                 height={i === kg ? 2.4 : 1.2}
                 class="range"
-                class:current={i === kg}
+                class:current={i === kg || allKeygroups}
                 role="button"
                 tabindex="-1"
                 onclick={() => selectKeygroup(i)}
@@ -561,6 +578,18 @@
     background: var(--text);
     border-color: var(--text);
     color: var(--bg);
+  }
+  /* Editing all keygroups: every tab and range is marked. */
+  .tabs.all button:not(.active) {
+    background: var(--select-soft);
+  }
+  .all-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
   }
   .empty-zone {
     color: var(--muted);

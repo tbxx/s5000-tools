@@ -324,7 +324,7 @@
     flex: none;
   }
   .r-prog {
-    height: 84px;
+    height: 120px;
     flex: none;
   }
   .r-sel {
