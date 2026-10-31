@@ -235,6 +235,17 @@
     outline: 2px dashed var(--accent);
     outline-offset: 2px;
   }
+  /* The keyboard focus ring goes round the whole control, label and value
+     too, not the knob, menu or switch inside. (An outline on the knob's svg
+     also left pieces behind in WebKit when focus moved on.) While focused,
+     a linked control shows the focus ring in place of its dashed one. */
+  .control :focus-visible {
+    outline: none;
+  }
+  :global(:root:not([data-input="pointer"])) .control:has(:focus-visible) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
   .label {
     font-size: 9.5px;
     font-weight: 700;
@@ -254,10 +265,6 @@
   }
   svg.editable {
     cursor: ns-resize;
-  }
-  svg:focus-visible {
-    outline: 2px solid var(--focus);
-    outline-offset: 1px;
   }
   .track {
     fill: none;

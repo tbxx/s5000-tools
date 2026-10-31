@@ -18,9 +18,13 @@ interface Request {
 
 class Dialogs {
   current = $state<Request | null>(null);
+  // Where focus was when the dialog opened, to go back to when it closes;
+  // otherwise it is left on the page and Tab starts again from the top.
+  private returnTo: HTMLElement | null = null;
 
   private open(r: Omit<Request, "resolve">): Promise<string[] | null> {
     return new Promise((resolve) => {
+      if (!this.current) this.returnTo = document.activeElement as HTMLElement | null;
       this.current = { ...r, resolve };
     });
   }
@@ -36,6 +40,9 @@ class Dialogs {
   close(values: string[] | null) {
     this.current?.resolve(values);
     this.current = null;
+    const el = this.returnTo;
+    this.returnTo = null;
+    if (el?.isConnected) requestAnimationFrame(() => el.focus({ preventScroll: true }));
   }
 }
 
