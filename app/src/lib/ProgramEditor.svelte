@@ -513,20 +513,27 @@
     min-height: 0;
     display: flex;
   }
+  /* The panes scroll, which clips anything drawn outside them: room for
+     the focus ring (2px, 2px out) round controls at a pane's edge, taken
+     from the editor's padding so nothing moves. */
   .pane {
     overflow: auto;
     padding-bottom: 12px;
   }
   .program-pane {
-    width: 488px;
+    width: 493px;
     flex: none;
+    margin-left: -5px;
+    padding-left: 5px;
     padding-right: 14px;
     border-right: 1px solid var(--rule);
   }
   .keygroup-pane {
     flex: 1;
     min-width: 0;
+    margin-right: -5px;
     padding-left: 14px;
+    padding-right: 5px;
   }
   .pane-head {
     position: sticky;
@@ -637,9 +644,14 @@
   .empty-zone {
     color: var(--muted);
   }
+  /* A fixed width (the longest is "C#-1 – G#8"), so the keyboard beside it
+     keeps its size from one keygroup to the next. */
   .range-text {
     font-size: 12px;
     white-space: nowrap;
+    flex: none;
+    width: 11ch;
+    font-variant-numeric: tabular-nums;
   }
   .sample {
     margin-left: 8px;
@@ -651,17 +663,21 @@
     .panes {
       flex-direction: column;
       overflow: auto;
+      margin: 0 -5px;
+      padding: 0 5px;
     }
     .pane {
       overflow: visible;
     }
     .program-pane {
       width: auto;
-      padding-right: 0;
+      margin-left: 0;
+      padding: 0;
       border-right: none;
     }
     .keygroup-pane {
-      padding-left: 0;
+      margin-right: 0;
+      padding: 0;
     }
   }
 </style>
