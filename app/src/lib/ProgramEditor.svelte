@@ -329,6 +329,16 @@
     const w = whites.filter((m) => m < n).length;
     return isBlack(n) ? [w - 0.3, 0.6] : [w, 1];
   }
+  // Under the keyboard, a bar for each selected keygroup's span, stacked in
+  // a strip of fixed height (thinner as more are selected), so selecting
+  // never changes the header's size.
+  const LANES_TOP = 6.6;
+  const LANES = 3.4;
+  const lanes = $derived.by(() => {
+    const picked = [...chosen].filter((i) => i < ranges.length).sort((a, b) => a - b);
+    const step = LANES / Math.max(picked.length, 2);
+    return picked.map((i, k) => ({ i, y: LANES_TOP + k * step, h: step * (picked.length > 6 ? 1 : 0.8) }));
+  });
   const ranges = $derived(
     view?.keygroups.map((k) => [k.values["keygroup.low_key"] ?? LOW, k.values["keygroup.high_key"] ?? HIGH]) ?? [],
   );
@@ -431,7 +441,8 @@
             {/each}
           </div>
           {#if editable && view.keygroups.length > 1}
-            {#if chosen.size > 1 && !allKeygroups}<span class="muted range-text">{chosen.size} selected</span>{/if}
+            <!-- Always there, so the tabs don't re-wrap as the selection changes. -->
+            <span class="muted range-text">{chosen.size > 1 && !allKeygroups ? `${chosen.size} selected` : ""}</span>
             <label class="all-toggle" title="Keygroup and zone edits go to every keygroup (zones: the same zone number in each). {modLabel}-click or Shift-click the tabs to pick some.">
               <input type="checkbox" checked={allKeygroups} onchange={(e) => setAll(e.currentTarget.checked)} /> Edit all
             </label>
@@ -439,19 +450,20 @@
           {#if keygroup}
             <span class="muted range-text">{noteName(ranges[kg][0])} – {noteName(ranges[kg][1])}</span>
           {/if}
-          <svg viewBox="0 0 {whites.length} 9" preserveAspectRatio="none" class="keyboard" aria-label="Keygroup ranges">
+          <svg viewBox="0 0 {whites.length} {LANES_TOP + LANES}" preserveAspectRatio="none" class="keyboard" aria-label="Keygroup ranges">
             {#each whites as n}<rect x={keyX(n)[0]} y="0" width="1" height="6" class="white" />{/each}
             {#each whites as n}
               {#if isBlack(n + 1) && n + 1 <= HIGH}<rect x={keyX(n + 1)[0]} y="0" width="0.6" height="3.8" class="black" />{/if}
             {/each}
-            {#each ranges as [lo, hi], i}
+            {#each lanes as { i, y, h }}
+              {@const [lo, hi] = ranges[i]}
               <rect
                 x={keyX(lo)[0]}
-                y={i === kg ? 6.4 : 7.2}
+                {y}
                 width={keyX(hi)[0] + keyX(hi)[1] - keyX(lo)[0]}
-                height={i === kg ? 2.4 : 1.2}
+                height={h}
                 class="range"
-                class:current={chosen.has(i)}
+                class:current={i === kg}
                 role="button"
                 tabindex="-1"
                 onclick={(e) => pickKeygroup(e, i)}
@@ -592,7 +604,7 @@
   .keyboard {
     flex: 1;
     min-width: 120px;
-    height: 26px;
+    height: 30px;
     display: block;
   }
   .keyboard .white {
@@ -603,12 +615,15 @@
   .keyboard .black {
     fill: #000;
   }
+  /* The selected keygroups' spans; the current one solid. */
   .keyboard .range {
-    fill: var(--rule-soft);
+    fill: var(--accent);
+    opacity: 0.45;
     stroke: none;
+    cursor: pointer;
   }
   .keyboard .range.current {
-    fill: var(--accent);
+    opacity: 1;
   }
   .tabs,
   .zone-tabs {
