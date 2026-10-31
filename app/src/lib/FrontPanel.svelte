@@ -224,7 +224,23 @@
 
     <div class="modes">
       {#each modeKeys as k}
-        <div class="mode">{@render key(k, (leds >> (k.code - 0x40)) & 1 ? "lit" : "")}</div>
+        <!-- As on the sampler: the name printed above, and the button its own
+             green light. -->
+        <div class="mode">
+          <span class="mode-name" aria-hidden="true">{k.label}</span>
+          <button
+            class="key lamp"
+            class:lit={(leds >> (k.code - 0x40)) & 1}
+            class:down={held.has(k.code)}
+            aria-label={k.label}
+            disabled={!app.connected}
+            onpointerdown={(e) => down(e, k.code)}
+            onpointerup={() => release(k.code)}
+            onclick={() => clicked(k.code)}
+            onpointercancel={() => release(k.code)}
+            onlostpointercapture={() => release(k.code)}
+          ></button>
+        </div>
       {/each}
     </div>
 
@@ -403,30 +419,32 @@
     align-items: center;
     gap: 5px;
   }
-  .mode .key {
-    width: 100%;
-    padding: 7px 2px;
-    white-space: normal;
+  .mode-name {
+    font-size: 11px;
+    font-weight: 700;
     line-height: 1.1;
-    min-height: 38px;
+    text-align: center;
+    min-height: 2.2em;
+    display: flex;
+    align-items: flex-end;
   }
-  /* The key's light: a small window in its top left corner, as on the
-     sampler, where the light is in the button. Empty until lit. */
-  .mode .key {
-    position: relative;
+  /* The mode button is its own LED, in the scheme's green: a dim lens until
+     the sampler lights it. Pressing it still flashes, as other keys do. */
+  .lamp {
+    width: 100%;
+    height: 22px;
+    padding: 0;
+    background: color-mix(in srgb, var(--mta-green) 22%, var(--surface));
+    border-color: color-mix(in srgb, var(--mta-green) 50%, var(--rule-soft));
   }
-  .mode .key::before {
-    content: "";
-    position: absolute;
-    top: 4px;
-    left: 4px;
-    width: 10px;
-    height: 4px;
-    border: 1px solid var(--rule-soft);
+  .lamp.lit {
+    background: var(--mta-green);
+    border-color: var(--rule);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--mta-green) 60%, transparent);
   }
-  .mode .key.lit::before {
-    background: var(--led);
-    border-color: var(--led);
+  .lamp.down {
+    background: var(--text);
+    box-shadow: none;
   }
   .foot {
     display: flex;
