@@ -67,7 +67,8 @@ any virtual machine first.
   and send, transpose, fine tune and key range per part. Drag a number up or
   down (Shift for fine steps), or double-click it to type a value; edits go to
   the sampler as you change them. Selecting a row shows that part as knobs.
-  **Table | Mixer** switches to a mixing desk: a strip per part with
+  ⌘-click or ⇧-click selects several parts; a change to one of them goes
+  to them all. **Table | Mixer** switches to a mixing desk: a strip per part with
   menus, send and pan knobs, key range, mute/solo and a level fader.
   **New multi…** creates one in memory with 32, 64 or 128 parts. A `.akm`
   opened from the Mac is read-only, and lacks mute, solo and the multi

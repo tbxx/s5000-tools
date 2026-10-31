@@ -77,6 +77,7 @@
         ["Home / End", "Lowest / highest value"],
         ["Enter or Space", "Type a value (knobs); Enter in a table cell"],
         [`${opt}↑ / ${opt}↓`, "Program: previous / next keygroup. Multi: the part above / below"],
+        [`${mod}click / ${shift}click`, "Multi: add a part to the selection / select a range of parts"],
         [`${opt}← / ${opt}→`, "Program: previous / next zone. Mixer: the same control in the next strip"],
       ],
     },
@@ -225,6 +226,11 @@
           channel, output, effects bus, send and pan knobs, key range, mute and solo, and a level fader. The desk shows
           32 parts at a time; for bigger multis, the <b>All parts</b> overview above it picks the block. In the desk, ←
           and → move through the controls and {opt}← {opt}→ to the same control in the next strip.
+        </li>
+        <li>
+          Select several parts to change them together: {mod}-click adds or removes a part, {shift}-click selects a
+          range. A change to any selected part (level, pan, effects, MIDI channel, key range, mute, program…) goes to
+          all of them. A plain click on a part outside the selection selects just that part.
         </li>
         <li><b>Only parts with a program</b> hides empty parts.</li>
         <li><b>New multi…</b> makes one in memory with 32, 64 or 128 parts.</li>

@@ -7,6 +7,7 @@
   // the sampler's memory are edited live; an .akm opened from the Mac is
   // read-only. The FX send bus settings belong to the effects editor.
   import { onMount, untrack } from "svelte";
+  import { SvelteSet } from "svelte/reactivity";
   import { open } from "@tauri-apps/plugin-dialog";
   import Control from "./Control.svelte";
   import MixerView from "./MixerView.svelte";
@@ -16,6 +17,7 @@
   import { noteName } from "./format";
   import { rove } from "./keys";
   import { formatPart } from "./partFormat";
+  import { modKey } from "./prefs.svelte";
   import { app } from "./state.svelte";
 
   type Route = "grey" | "red" | "brown" | "blue" | "lime";
@@ -96,6 +98,50 @@
   let { initial, onitem }: { initial?: string; onitem?: (name?: string) => void } = $props();
 
   let sel = $state(0);
+  /** Selected parts (always including `sel`). An edit to one of them goes
+   *  to them all. */
+  const chosen = new SvelteSet<number>([0]);
+  // Moving `sel` some other way (⌥↑/⌥↓, ‹ ›, loading) selects just that part.
+  $effect(() => {
+    const s = sel;
+    untrack(() => {
+      if (!chosen.has(s)) {
+        chosen.clear();
+        chosen.add(s);
+      }
+    });
+  });
+
+  /** Click a part: just it. ⌘-click (Ctrl elsewhere): add or remove it.
+   *  ⇧-click: the range from the current part. A plain click on a part
+   *  already selected keeps the selection, so its controls change them all. */
+  function select(e: MouseEvent | FocusEvent | null, i: number) {
+    const add = e instanceof MouseEvent && modKey(e);
+    const range = e instanceof MouseEvent && e.shiftKey;
+    if (range) {
+      const [a, b] = [Math.min(sel, i), Math.max(sel, i)];
+      chosen.clear();
+      for (const r of rows) if (r.i >= a && r.i <= b) chosen.add(r.i);
+      chosen.add(i);
+    } else if (add) {
+      if (chosen.has(i) && chosen.size > 1) {
+        chosen.delete(i);
+        if (sel === i) sel = [...chosen][0];
+        return;
+      }
+      chosen.add(i);
+    } else if (!chosen.has(i)) {
+      chosen.clear();
+      chosen.add(i);
+    }
+    sel = i;
+  }
+
+  /** Focus moved by the keyboard, not by a click (which `select` has seen). */
+  const keyboardFocus = (e: FocusEvent) => (e.target as HTMLElement).matches(":focus-visible");
+
+  /** The parts an edit to part `p` goes to. */
+  const targets = (p: number) => (chosen.has(p) && chosen.size > 1 ? [...chosen].sort((a, b) => a - b) : [p]);
   let picked = $state("");
   let loading = $state(false);
   let usedOnly = $state(false);
@@ -249,29 +295,38 @@
 
   async function write(p: number | null, id: string, value: number) {
     if (!editable || !view || !source || !("memory" in source)) return;
+    const parts = p === null ? [null] : targets(p);
     // Show the new value at once.
-    if (p === null) {
-      if (id in view.values) view.values[id] = value;
-      else live.values[id] = value;
-    } else if (id in view.parts[p].values) view.parts[p].values[id] = value;
-    else (live.parts[p] ??= {})[id] = value;
-    try {
-      await api.writeMultiParam(source.memory, id, p, value);
-    } catch (e) {
-      const where = p === null ? "" : `Part ${p + 1} `;
-      app.fail(`${where}${info(id)?.label ?? id}: ${message(e)}`);
+    for (const q of parts) {
+      if (q === null) {
+        if (id in view.values) view.values[id] = value;
+        else live.values[id] = value;
+      } else if (id in view.parts[q].values) view.parts[q].values[id] = value;
+      else (live.parts[q] ??= {})[id] = value;
+    }
+    for (const q of parts) {
+      try {
+        await api.writeMultiParam(source.memory, id, q, value);
+      } catch (e) {
+        const where = q === null ? "" : `Part ${q + 1} `;
+        app.fail(`${where}${info(id)?.label ?? id}: ${message(e)}`);
+        return;
+      }
     }
   }
 
   async function assign(p: number, program: string) {
     if (!editable || !view || !source || !("memory" in source) || !program) return;
-    const before = view.parts[p].program;
-    view.parts[p].program = program;
-    try {
-      await api.setPartProgram(source.memory, p, program);
-    } catch (e) {
-      view.parts[p].program = before;
-      app.fail(`Part ${p + 1} program: ${message(e)}`);
+    for (const q of targets(p)) {
+      const before = view.parts[q].program;
+      view.parts[q].program = program;
+      try {
+        await api.setPartProgram(source.memory, q, program);
+      } catch (e) {
+        view.parts[q].program = before;
+        app.fail(`Part ${q + 1} program: ${message(e)}`);
+        return;
+      }
     }
   }
 
@@ -439,7 +494,9 @@
         write={(p, id, v) => write(p, id, v)}
         {info}
         {editable}
-        bind:sel
+        {sel}
+        {chosen}
+        onselect={select}
         {usedOnly}
         {programChoices}
         {assign}
@@ -476,8 +533,14 @@
             </thead>
             <tbody use:rove>
               {#each rows as { p, i } (i)}
-                <tr class:selected={i === sel} class:empty-part={!p.program} onpointerdown={() => (sel = i)} onfocusin={() => (sel = i)}>
-                  <td class="partno"><button class="pick" onclick={() => (sel = i)} aria-label="Part {i + 1}">{i + 1}</button></td>
+                <tr
+                  class:selected={chosen.has(i)}
+                  class:current={i === sel}
+                  class:empty-part={!p.program}
+                  onpointerdown={(e) => select(e, i)}
+                  onfocusin={(e) => keyboardFocus(e) && select(e, i)}
+                >
+                  <td class="partno"><button class="pick" aria-pressed={chosen.has(i)} aria-label="Part {i + 1}">{i + 1}</button></td>
                   <td>{@render programPicker(i, p.program, false)}</td>
                   {#each groups as g}
                     {#each g.cols as c}<td class:center={c.kind !== "num"} style:--route="var(--mta-{g.route})">{@render cellFor(i, c)}</td>{/each}
@@ -498,8 +561,13 @@
         {#if part}
           <aside class="detail" data-pane>
             <h3 class="sign head" style:--route="var(--mta-purple)">
-              Part {sel + 1}
-              <span class="sign-muted">{part.program ?? "no program"}</span>
+              {#if chosen.size > 1}
+                {chosen.size} parts
+                <span class="sign-muted">edits go to all</span>
+              {:else}
+                Part {sel + 1}
+                <span class="sign-muted">{part.program ?? "no program"}</span>
+              {/if}
               <span class="step">
                 <button class="small" onclick={() => (sel = Math.max(0, sel - 1))} disabled={sel === 0} aria-label="Previous part">‹</button>
                 <button class="small" onclick={() => (sel = Math.min(view!.parts.length - 1, sel + 1))} disabled={sel === view.parts.length - 1} aria-label="Next part">›</button>
@@ -727,6 +795,10 @@
   }
   tr.selected td.partno {
     background: var(--select);
+  }
+  tr.current .pick {
+    outline: 2px solid var(--text);
+    outline-offset: -2px;
   }
   tr.selected .pick {
     color: var(--select-text);

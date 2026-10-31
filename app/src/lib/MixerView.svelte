@@ -19,7 +19,9 @@
     write,
     info,
     editable,
-    sel = $bindable(),
+    sel,
+    chosen,
+    onselect,
     usedOnly,
     programChoices,
     assign,
@@ -30,6 +32,8 @@
     info: (id: string) => ParamInfo | undefined;
     editable: boolean;
     sel: number;
+    chosen: Set<number>;
+    onselect: (e: MouseEvent | FocusEvent | null, i: number) => void;
     usedOnly: boolean;
     programChoices: (current: string | null) => string[];
     assign: (p: number, program: string) => void;
@@ -163,8 +167,17 @@
     >
       {#each strips as { p, i } (i)}
         {@const range = span(i)}
-        <div class="strip" class:selected={i === sel} class:empty={!p.program} onfocusin={() => (sel = i)} onpointerdown={() => (sel = i)} role="group" aria-label="Part {i + 1}">
-          <button class="r-num num" onclick={() => (sel = i)} aria-label="Select part {i + 1}">{i + 1}</button>
+        <div
+          class="strip"
+          class:selected={chosen.has(i)}
+          class:current={i === sel}
+          class:empty={!p.program}
+          onfocusin={(e) => (e.target as HTMLElement).matches(":focus-visible") && onselect(e, i)}
+          onpointerdown={(e) => onselect(e, i)}
+          role="group"
+          aria-label="Part {i + 1}"
+        >
+          <button class="r-num num" aria-pressed={chosen.has(i)} aria-label="Select part {i + 1}">{i + 1}</button>
           <span class="r-prog prog" title={p.program ?? "No program"}>
             <span class="name">{p.program ?? "—"}</span>
             {#if editable}
@@ -373,7 +386,7 @@
     font-size: 10px;
     font-weight: 700;
   }
-  .strip.selected .num {
+  .strip.current .num {
     outline: 2px solid var(--text);
     outline-offset: -2px;
   }
