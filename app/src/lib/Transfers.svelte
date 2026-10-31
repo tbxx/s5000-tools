@@ -15,7 +15,6 @@
   import DepDialog from "./DepDialog.svelte";
   import SamplerTree from "./SamplerTree.svelte";
   import { dialogs } from "./dialogs.svelte";
-  import { acceptDiskOps } from "./experimental";
   import { queue, type Job } from "./queue.svelte";
   import { app } from "./state.svelte";
   import { describePlace, folderKey, tree, type Row } from "./tree.svelte";
@@ -189,7 +188,7 @@
       "Delete",
       true,
     );
-    if (!ok || (files.length && !(await acceptDiskOps()))) return;
+    if (!ok) return;
     try {
       const samplers = new Set(items.map((r) => r.sampler));
       for (const s of samplers) {
@@ -275,7 +274,7 @@
 
   async function newFolder() {
     const f = ctxFolder;
-    if (!f || f.at !== "disk" || !(await acceptDiskOps())) return;
+    if (!f || f.at !== "disk") return;
     const v = await dialogs.ask(`New folder in ${describePlace(f)}`, [{ label: "Name", value: "NEW FOLDER" }], "Create");
     if (!v || !v[0].trim()) return;
     try {

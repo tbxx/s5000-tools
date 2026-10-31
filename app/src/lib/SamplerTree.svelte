@@ -106,9 +106,6 @@
         {#if row.type === "group"}
           <span class="label">{row.label}</span>
           <span class="count">{row.detail}</span>
-          {#if row.group === "disks"}
-            <span class="experimental" title="Disk loads, saves and deletes are untested on hardware">Experimental</span>
-          {/if}
           {#if row.group === "disks" && row.expanded}
             <button
               class="mini"
@@ -256,16 +253,6 @@
   .count {
     color: var(--muted);
     font-weight: 400;
-  }
-  /* A small yellow caution sign, as on the subway: black on yellow, square. */
-  .experimental {
-    background: var(--warn);
-    color: #000;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 1px 5px;
-    margin-left: 6px;
-    flex: none;
   }
   .label {
     overflow: hidden;

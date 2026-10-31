@@ -43,7 +43,7 @@ replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
 | | Status |
 |---|---|
 | S5000, OS 2.14, macOS 14 (Apple Silicon) | Works: transfers in both directions with dependencies, rename/delete/create, live parameter editing, front panel, meters |
-| Disk operations (load, save, delete on the sampler's disks) | **Experimental.** Built from Akai's spec but untested on hardware; the app asks before the first one. One documented disk command restarts an S5000 and is never sent |
+| Disk operations (load, save, delete on the sampler's disks) | Works. One documented disk command restarts an S5000 and is never sent |
 | S6000, OS 1.x, other OS 2.x versions | Untested; likely to work |
 | Windows, Linux | Builds and passes tests; untested with a sampler |
 

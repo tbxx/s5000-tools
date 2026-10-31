@@ -126,7 +126,7 @@ impl Download {
     }
 
     /// Getting a file from the current folder of the selected disk
-    /// (`41 <name> 00`, docs/protocol.md §6). Untested on hardware.
+    /// (`41 <name> 00`, docs/protocol.md §6).
     pub fn start_disk(file_name: &str) -> (Self, Vec<u8>) {
         let mut request = vec![0x41];
         request.extend(file_name.bytes().filter(|&b| b != 0));
@@ -228,7 +228,7 @@ impl<'a> Upload<'a> {
     }
 
     /// Sending a file into the current folder of the selected disk
-    /// (`40 <size> <name> 00`). Untested on hardware.
+    /// (`40 <size> <name> 00`).
     pub fn start_disk(file_name: &str, file: &'a [u8]) -> (Self, Vec<u8>) {
         let mut request = vec![0x40];
         request.extend_from_slice(&(file.len() as u32).to_be_bytes());

@@ -1,5 +1,4 @@
-//! Disk tools (docs/protocol.md §13; spec tables 20–21). Untested on
-//! hardware so far.
+//! Disk tools (docs/protocol.md §13; spec tables 20–21).
 
 use s5k_protocol::Transport;
 use s5k_protocol::encode::{self, read_strings, read_u14, read_u28, read_u56};

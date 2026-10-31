@@ -528,9 +528,8 @@ appears, and the restart can hang until the power is cycled (twice on
 2026-10-25; once the sampler also showed "USB Write Timeout" first). `10 04`
 and `10 05` list the disks without it.
 
-Tested on hardware so far: `10 04` and `10 05` (an S5000 with only its
-floppy drive reports one disk, handle 1, type 0, named "No disk"). The rest
-is untested.
+Disk listing, loading, saving and deleting work on hardware. An S5000 with
+only its floppy drive reports one disk, handle 1, type 0, named "No disk".
 
 ### Disks
 
@@ -588,8 +587,6 @@ items by name where possible. Plain "load" does not load dependencies; use
 
 ## 14. Open questions
 
-- Disk tools: commands come from the spec, not yet tested on hardware; disk
-  transfers `40`/`41` are untested.
 - 2-byte index encoding in the raw transfer commands for indexes ≥ 128.
 - The 128-byte block after a `01 00 00 00` keep-alive reply.
 - `02 01`, `02 04`, `02 20`, `02 21` status values (see the spec's System

@@ -411,8 +411,7 @@ impl<T: Transport> Sampler<T> {
         self.run_download(download, &request, progress)
     }
 
-    /// Fetches a file from the current folder of the selected disk
-    /// (untested on hardware).
+    /// Fetches a file from the current folder of the selected disk.
     pub fn get_from_disk(&mut self, file_name: &str, progress: Progress) -> Result<Vec<u8>> {
         let (download, request) = Download::start_disk(file_name);
         self.run_download(download, &request, progress)
@@ -447,8 +446,7 @@ impl<T: Transport> Sampler<T> {
         self.run_upload(upload, &request, file, progress)
     }
 
-    /// Writes a file into the current folder of the selected disk
-    /// (untested on hardware).
+    /// Writes a file into the current folder of the selected disk.
     pub fn put_to_disk(&mut self, file_name: &str, file: &[u8], progress: Progress) -> Result<()> {
         let (upload, request) = Upload::start_disk(file_name, file);
         self.run_upload(upload, &request, file, progress)
