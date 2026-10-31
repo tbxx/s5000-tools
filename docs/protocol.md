@@ -139,13 +139,24 @@ ak.Sys then polls continuously:
 
 | Request | Every | Reply |
 |---|---|---|
-| raw `30` | ~200 ms | 4 bytes. `00 00 00 00` normally; `01 00 00 00` followed by a 128-byte block once multis exist (meaning unknown) |
+| raw `30` | ~200 ms | 4 bytes, see below |
 | `02 30` / `02 31` | ~200 ms | wave / CPU memory free, in % (as shown on the LCD) |
 | raw `50` | ~60 ms, only with the meter window open | level meters, see [§12](#12-level-meters) |
 | raw `01` | ~150 ms, only with the panel window open | screen image, see [§11](#11-front-panel) |
 | `0C 42`, `02 20`, `0A 12` | ~4 s | current multi index, current mode (?), current program index |
 
 ak.Sys wraps groups of queries in `00 03 01` … `00 03 00` (item sync on/off).
+
+The keep-alive reply is `00 00 00 00` when nothing has happened. With
+heartbeat messages on (`00 07 01`):
+
+- byte 3 = `02`: something in memory was created, deleted or renamed since
+  the last keep-alive, by a remote command or on the front panel. It is set
+  once per change. Parameter edits do not set it.
+- byte 2 = `01` or `02`: seen while front-panel keys are pressed (meaning
+  unconfirmed).
+- byte 0 = `01`: a 128-byte block follows, seen once multis exist (meaning
+  unknown).
 
 ## 4. Value encodings
 

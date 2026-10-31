@@ -25,6 +25,8 @@ any virtual machine first.
   Samples and Disks (disks → folders → files), next to a folder on the Mac.
   - **+ Add** connects more samplers (USB, or a Simulator); **Make active**
     picks the sampler the other views use.
+  - The lists follow programs, samples and multis created, deleted or
+    renamed on the sampler's front panel.
   - Drag between memory, disk folders, the Mac folder, the Finder and other
     samplers. Dropped files go where their type belongs (`.wav` → Samples,
     `.akp` → Programs, `.akm` → Multis), wherever they land on a sampler.

@@ -27,6 +27,14 @@ pub struct SamplerInfo {
     pub cpu_free_percent: u8,
 }
 
+/// What a keep-alive reply reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Heartbeat {
+    /// Something in memory was created, deleted or renamed since the last
+    /// keep-alive, here or on the front panel.
+    pub memory_changed: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SampleInfo {
     pub index: u16,
@@ -88,6 +96,9 @@ impl<T: Transport> Sampler<T> {
         }
         s.request(Message::new(section::SYSEX_CONFIG, 0x01, [0]))?;
         s.request(Message::new(section::SYSEX_CONFIG, 0x03, [0]))?;
+        // Heartbeat messages: keep-alive replies then flag memory changes,
+        // including those made on the front panel.
+        s.request(Message::new(section::SYSEX_CONFIG, 0x07, [1]))?;
         Ok(s)
     }
 
@@ -195,14 +206,16 @@ impl<T: Transport> Sampler<T> {
     }
 
     /// Raw keep-alive. ak.Sys sends one about every 200 ms; call it when idle.
-    pub fn keep_alive(&mut self) -> Result<()> {
+    pub fn keep_alive(&mut self) -> Result<Heartbeat> {
         self.write_raw(&[KEEP_ALIVE])?;
         let reply = self.read_raw(4, self.timeout)?;
         if reply.first() == Some(&1) {
             // A 128-byte block follows once multis exist (meaning unknown).
             self.read_raw(128, self.timeout)?;
         }
-        Ok(())
+        Ok(Heartbeat {
+            memory_changed: reply.get(3).is_some_and(|b| b & 0x02 != 0),
+        })
     }
 
     /// Deletes everything in memory.

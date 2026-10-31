@@ -29,5 +29,5 @@ pub mod panel_size {
     pub use s5k_protocol::panel::{HEIGHT, WIDTH};
 }
 pub use s5k_protocol::{ItemKind, Transport};
-pub use sampler::{MemoryList, MultiInfo, ProgramInfo, SampleInfo, Sampler, SamplerInfo};
+pub use sampler::{Heartbeat, MemoryList, MultiInfo, ProgramInfo, SampleInfo, Sampler, SamplerInfo};
 pub use sim::Simulator;

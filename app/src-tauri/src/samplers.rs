@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use s5k::{Sampler, Simulator, Transport};
 use serde::{Deserialize, Serialize};
 
-use crate::worker::{CmdResult, Device, Worker};
+use crate::worker::{CmdResult, Device, Event, Worker};
 
 fn str_err(e: impl std::fmt::Display) -> String {
     e.to_string()
@@ -74,12 +74,12 @@ struct Inner {
     active: Option<u32>,
 }
 
-/// Lost-connection notifications: (sampler id, message).
-pub type OnLost = Arc<dyn Fn(u32, String) + Send + Sync>;
+/// Notifications from the samplers' threads: (sampler id, event).
+pub type OnEvent = Arc<dyn Fn(u32, Event) + Send + Sync>;
 
 pub struct Samplers {
     inner: Arc<Mutex<Inner>>,
-    on_lost: OnLost,
+    on_event: OnEvent,
 }
 
 fn usb_key(d: &s5k_usb::DeviceInfo) -> String {
@@ -132,10 +132,10 @@ pub fn info_of(dev: &mut Device) -> s5k::Result<Info> {
 }
 
 impl Samplers {
-    pub fn new(on_lost: impl Fn(u32, String) + Send + Sync + 'static) -> Self {
+    pub fn new(on_event: impl Fn(u32, Event) + Send + Sync + 'static) -> Self {
         Self {
             inner: Arc::default(),
-            on_lost: Arc::new(on_lost),
+            on_event: Arc::new(on_event),
         }
     }
 
@@ -230,7 +230,7 @@ impl Samplers {
             };
             (inner.next, short_id)
         };
-        let worker = Arc::new(Worker::spawn(&short_id, self.lost_handler(id)));
+        let worker = Arc::new(Worker::spawn(&short_id, self.event_handler(id)));
         let o = origin.clone();
         let info = worker
             .call(move |session| {
@@ -271,11 +271,12 @@ impl Samplers {
         })
     }
 
-    fn lost_handler(&self, id: u32) -> impl Fn(String) + Send + 'static {
+    fn event_handler(&self, id: u32) -> impl Fn(Event) + Send + 'static {
         let inner = Arc::downgrade(&self.inner);
-        let on_lost = self.on_lost.clone();
-        move |message| {
-            if let Some(inner) = inner.upgrade()
+        let on_event = self.on_event.clone();
+        move |event| {
+            if matches!(event, Event::Lost(_))
+                && let Some(inner) = inner.upgrade()
                 && let Some(e) = inner
                     .lock()
                     .unwrap_or_else(|e| e.into_inner())
@@ -284,7 +285,7 @@ impl Samplers {
             {
                 e.meta.status = Status::Lost;
             }
-            on_lost(id, message);
+            on_event(id, event);
         }
     }
 

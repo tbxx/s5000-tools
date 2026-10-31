@@ -49,6 +49,11 @@ pub struct Simulator {
     pub disk: DiskState,
     /// Every SysEx message received, for tests.
     pub log: Vec<Message>,
+    /// Heartbeat messages on (`00 07 01`): keep-alives then flag memory
+    /// changes, as the sampler does.
+    heartbeat: bool,
+    /// Memory as of the last keep-alive, to tell whether it changed.
+    seen: Option<Vec<String>>,
 }
 
 const BLOCK: usize = 16384;
@@ -95,6 +100,8 @@ impl Simulator {
             upload_size: 0,
             disk: DiskState::default(),
             log: Vec::new(),
+            heartbeat: false,
+            seen: None,
         }
     }
 
@@ -214,6 +221,16 @@ impl Simulator {
         self.reply(msg, 0x45, &encode::u14(code));
     }
 
+    /// Whether memory changed since the last keep-alive (with heartbeat on).
+    fn memory_changed(&mut self) -> bool {
+        let now: Vec<String> = [&self.samples, &self.programs, &self.multis]
+            .iter()
+            .flat_map(|list| list.iter().map(|(name, _)| name.clone()).chain([String::new()]))
+            .collect();
+        let before = self.seen.replace(now);
+        self.heartbeat && before.is_some_and(|b| Some(b) != self.seen)
+    }
+
     fn names(&self, kind: usize) -> Vec<u8> {
         let list = match kind {
             0 => &self.samples,
@@ -251,6 +268,10 @@ impl Simulator {
         };
 
         match (msg.section, item) {
+            (section::SYSEX_CONFIG, 0x07) => {
+                self.heartbeat = args.first() == Some(&1);
+                self.done(&msg)
+            }
             (section::SYSEX_CONFIG, _) => self.done(&msg),
             (section::SYSTEM, 0x03) => self.reply(&msg, 0x52, &encode::string("AKAI S5000 (simulated)")),
             (section::SYSTEM, 0x00) => self.reply(&msg, 0x52, &[2, 14]),
@@ -400,7 +421,10 @@ impl Simulator {
         }
         match p.first() {
             Some(0x03 | 0x04) => {}
-            Some(0x30) => self.out.push_back(vec![0, 0, 0, 0]),
+            Some(0x30) => {
+                let changed = self.memory_changed();
+                self.out.push_back(vec![0, 0, 0, if changed { 2 } else { 0 }]);
+            }
             Some(0x01) => {
                 let screen = vec![0u8; SCREEN_BYTES];
                 for chunk in screen.chunks(4096) {

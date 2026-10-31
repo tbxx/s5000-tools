@@ -107,6 +107,16 @@ fn panel_and_meters() {
 }
 
 #[test]
+fn keep_alive_flags_memory_changes() {
+    let mut s = connect();
+    s.keep_alive().unwrap();
+    assert!(!s.keep_alive().unwrap().memory_changed);
+    s.create_program("New", 1).unwrap();
+    assert!(s.keep_alive().unwrap().memory_changed);
+    assert!(!s.keep_alive().unwrap().memory_changed);
+}
+
+#[test]
 fn lists_dependencies() {
     let mut s = connect();
     let deps = s.program_dependencies(0).unwrap();

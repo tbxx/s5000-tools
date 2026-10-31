@@ -35,14 +35,24 @@ pub struct Worker {
 
 pub type CmdResult<T> = Result<T, String>;
 
+/// What the thread reports on its own, from keep-alives.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Event {
+    /// Keep-alives stopped working.
+    Lost(String),
+    /// Something in memory was created, deleted or renamed, possibly on the
+    /// front panel.
+    MemoryChanged,
+}
+
 impl Worker {
-    /// Starts the thread. `on_lost` is called when keep-alives stop working.
-    /// The thread ends when the `Worker` is dropped.
-    pub fn spawn(name: &str, on_lost: impl Fn(String) + Send + 'static) -> Self {
+    /// Starts the thread, which reports `Event`s to `on_event`. The thread
+    /// ends when the `Worker` is dropped.
+    pub fn spawn(name: &str, on_event: impl Fn(Event) + Send + 'static) -> Self {
         let (jobs, rx) = mpsc::channel::<Job>();
         thread::Builder::new()
             .name(format!("sampler {name}"))
-            .spawn(move || run(rx, on_lost))
+            .spawn(move || run(rx, on_event))
             .expect("cannot start a sampler thread");
         Self { jobs }
     }
@@ -81,7 +91,7 @@ impl Session {
     }
 }
 
-fn run(rx: mpsc::Receiver<Job>, on_lost: impl Fn(String)) {
+fn run(rx: mpsc::Receiver<Job>, on_event: impl Fn(Event)) {
     let mut session = Session::default();
     // Keep-alives go out only after 200 ms without traffic: a job is traffic,
     // so a long transfer is not interrupted between its steps.
@@ -104,14 +114,19 @@ fn run(rx: mpsc::Receiver<Job>, on_lost: impl Fn(String)) {
             continue;
         };
         match device.keep_alive() {
-            Ok(()) => failures = 0,
+            Ok(beat) => {
+                failures = 0;
+                if beat.memory_changed {
+                    on_event(Event::MemoryChanged);
+                }
+            }
             Err(e) => {
                 failures += 1;
                 if failures >= MAX_FAILURES {
                     session.device = None;
                     session.disk_at = None;
                     failures = 0;
-                    on_lost(format!("lost the sampler: {e}"));
+                    on_event(Event::Lost(format!("lost the sampler: {e}")));
                 }
             }
         }

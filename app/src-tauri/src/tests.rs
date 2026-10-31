@@ -10,7 +10,7 @@ use s5k_formats::Program;
 use crate::disk::{self, DiskPos};
 use crate::samplers::{Origin, Samplers, Status};
 use crate::transfer::{self, Deps, Kind, Line, Place, Progress, ProgressEvent, Request, Source};
-use crate::worker::CmdResult;
+use crate::worker::{CmdResult, Event};
 
 fn block<F: Future>(f: F) -> F::Output {
     tauri::async_runtime::block_on(f)
@@ -573,6 +573,20 @@ fn idle_keep_alive_and_panel() {
     .unwrap();
     assert!(block(worker.with(|dev| dev.info())).is_err());
     assert_eq!(samplers.list()[0].status, Status::Connected);
+}
+
+#[test]
+fn memory_changes_are_reported() {
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let seen = events.clone();
+    let samplers = Samplers::new(move |id, e| seen.lock().unwrap().push((id, e)));
+    block(samplers.add(Origin::Simulator)).unwrap();
+    let worker = samplers.worker(None).unwrap();
+    std::thread::sleep(Duration::from_millis(500));
+    assert!(events.lock().unwrap().is_empty());
+    block(worker.with(|dev| dev.create_program("New", 1))).unwrap();
+    std::thread::sleep(Duration::from_millis(500));
+    assert_eq!(*events.lock().unwrap(), [(1, Event::MemoryChanged)]);
 }
 
 // --- Multi editor --------------------------------------------------------------------------

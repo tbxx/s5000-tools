@@ -46,8 +46,11 @@ fn main() {
         .plugin(window_state())
         .setup(|app| {
             let handle = app.handle().clone();
-            app.manage(samplers::Samplers::new(move |id, message| {
-                drop(handle.emit("sampler-lost", Lost { id, message }))
+            app.manage(samplers::Samplers::new(move |id, event| {
+                drop(match event {
+                    worker::Event::Lost(message) => handle.emit("sampler-lost", Lost { id, message }),
+                    worker::Event::MemoryChanged => handle.emit("memory-changed", id),
+                })
             }));
             Ok(())
         })

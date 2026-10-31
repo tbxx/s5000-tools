@@ -24,7 +24,7 @@ fn connect() -> Option<Samplers> {
         eprintln!("set S5K_HARDWARE=1 to run hardware tests");
         return None;
     }
-    let samplers = Samplers::new(|id, why| eprintln!("sampler {id} lost: {why}"));
+    let samplers = Samplers::new(|id, event| eprintln!("sampler {id}: {event:?}"));
     let usb = samplers.usb().expect("list USB samplers");
     let key = usb.first().expect("no sampler on USB").key.clone();
     block(samplers.add(Origin::Usb { key })).expect("open the sampler");

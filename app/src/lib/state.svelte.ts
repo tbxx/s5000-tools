@@ -67,6 +67,20 @@ class AppState {
       }
       this.fail(`${this.label(payload.id)}: ${payload.message}`);
     });
+    // The sampler flags memory changes in its keep-alives, including those
+    // made on its front panel. Several arrive together (one per item a
+    // transfer adds), so the list is read once they settle.
+    const timers = new Map<number, ReturnType<typeof setTimeout>>();
+    await listen<number>("memory-changed", ({ payload: id }) => {
+      clearTimeout(timers.get(id));
+      timers.set(
+        id,
+        setTimeout(() => {
+          timers.delete(id);
+          void this.refresh(id);
+        }, 400),
+      );
+    });
     // Samplers still connected from before a reload of the page.
     try {
       for (const m of await api.samplers()) this.track(m);
