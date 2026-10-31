@@ -345,90 +345,99 @@
       file{app.connected ? "" : "; connect to read them live"}.
     </p>
   {:else}
-    <div class="grid program" data-pane>
-      {#each programPanels as p}{@render panel(p)}{/each}
-    </div>
+    <div class="panes">
+      <div class="pane program-pane" data-pane>
+        <div class="pane-head"><h2>Program</h2></div>
+        <div class="flow">
+          {#each programPanels as p}{@render panel(p)}{/each}
+          {#if other.length}
+            <section class="panel other" style:--route="var(--mta-grey)" use:rove>
+              <h3 class="sign">Other</h3>
+              <div class="cells">
+                {#each other as p}
+                  {#if p.index}
+                    {#each Array(p.index[2] - p.index[1] + 1) as _, i}{@render one(`${p.id}#${p.index[1] + i}`)}{/each}
+                  {:else}
+                    {@render one(p.id)}
+                  {/if}
+                {/each}
+              </div>
+            </section>
+          {/if}
+        </div>
+      </div>
 
-    <div class="keys">
-      <svg viewBox="0 0 {whites.length} 9" preserveAspectRatio="none" class="keyboard" aria-label="Keygroup ranges">
-        {#each whites as n}<rect x={keyX(n)[0]} y="0" width="1" height="6" class="white" />{/each}
-        {#each whites as n}
-          {#if isBlack(n + 1) && n + 1 <= HIGH}<rect x={keyX(n + 1)[0]} y="0" width="0.6" height="3.8" class="black" />{/if}
-        {/each}
-        {#each ranges as [lo, hi], i}
-          <rect
-            x={keyX(lo)[0]}
-            y={i === kg ? 6.4 : 7.2}
-            width={keyX(hi)[0] + keyX(hi)[1] - keyX(lo)[0]}
-            height={i === kg ? 2.4 : 1.2}
-            class="range"
-            class:current={i === kg}
-            role="button"
-            tabindex="-1"
-            onclick={() => selectKeygroup(i)}
-            onkeydown={() => {}}
-          />
-        {/each}
-      </svg>
-      <div class="octaves">
-        {#each Array(9) as _, o}<span style:left="{(keyX(24 + o * 12)[0] / whites.length) * 100}%">C{o}</span>{/each}
+      <div class="pane keygroup-pane" data-pane>
+        <!-- The keygroup's tabs, range and the keyboard stay in view as the pane scrolls. -->
+        <div class="pane-head">
+          <h2>Keygroup</h2>
+          <div class="tabs" use:rove>
+            {#each view.keygroups as _, i}
+              <button class:active={i === kg} onclick={() => selectKeygroup(i)}>{i + 1}</button>
+            {/each}
+          </div>
+          {#if keygroup}
+            <span class="muted range-text">{noteName(ranges[kg][0])} – {noteName(ranges[kg][1])}</span>
+          {/if}
+          <svg viewBox="0 0 {whites.length} 9" preserveAspectRatio="none" class="keyboard" aria-label="Keygroup ranges">
+            {#each whites as n}<rect x={keyX(n)[0]} y="0" width="1" height="6" class="white" />{/each}
+            {#each whites as n}
+              {#if isBlack(n + 1) && n + 1 <= HIGH}<rect x={keyX(n + 1)[0]} y="0" width="0.6" height="3.8" class="black" />{/if}
+            {/each}
+            {#each ranges as [lo, hi], i}
+              <rect
+                x={keyX(lo)[0]}
+                y={i === kg ? 6.4 : 7.2}
+                width={keyX(hi)[0] + keyX(hi)[1] - keyX(lo)[0]}
+                height={i === kg ? 2.4 : 1.2}
+                class="range"
+                class:current={i === kg}
+                role="button"
+                tabindex="-1"
+                onclick={() => selectKeygroup(i)}
+                onkeydown={() => {}}
+              />
+            {/each}
+          </svg>
+        </div>
+        <div class="columns">
+          {#each keygroupPanels as p}{@render panel(p)}{/each}
+          <section class="panel zone" style:--route="var(--mta-lime)" use:rove>
+            <h3 class="sign">Zone</h3>
+            <div class="zone-tabs">
+              {#each keygroup?.zones ?? [] as z, i}
+                <button class:active={i === zone} class:empty-zone={!z.sample} onclick={() => (zone = i)}>{i + 1}</button>
+              {/each}
+              <span class="lcd sample">{keygroup?.zones[zone]?.sample ?? "(no sample)"}</span>
+            </div>
+            <div class="cells">
+              {#each zoneCells as c}{@render cell(c)}{/each}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
-
-    <div class="tabs" data-pane use:rove>
-      {#each view.keygroups as _, i}
-        <button class:active={i === kg} onclick={() => selectKeygroup(i)}>{i + 1}</button>
-      {/each}
-      {#if keygroup}
-        <span class="muted range-text">
-          {noteName(ranges[kg][0])} – {noteName(ranges[kg][1])}
-        </span>
-      {/if}
-    </div>
-
-    <div class="grid keygroup" data-pane>
-      {#each keygroupPanels as p}{@render panel(p)}{/each}
-      <section class="panel zone" style:--route="var(--mta-lime)" use:rove>
-        <h3 class="sign">Zone</h3>
-        <div class="zone-tabs">
-          {#each keygroup?.zones ?? [] as z, i}
-            <button class:active={i === zone} class:empty-zone={!z.sample} onclick={() => (zone = i)}>{i + 1}</button>
-          {/each}
-          <span class="lcd sample">{keygroup?.zones[zone]?.sample ?? "(no sample)"}</span>
-        </div>
-        <div class="cells">
-          {#each zoneCells as c}{@render cell(c)}{/each}
-        </div>
-      </section>
-    </div>
-
-    {#if other.length}
-      <section class="panel other" style:--route="var(--mta-grey)" use:rove>
-        <h3 class="sign">Other</h3>
-        <div class="cells">
-          {#each other as p}
-            {#if p.index}
-              {#each Array(p.index[2] - p.index[1] + 1) as _, i}{@render one(`${p.id}#${p.index[1] + i}`)}{/each}
-            {:else}
-              {@render one(p.id)}
-            {/if}
-          {/each}
-        </div>
-      </section>
-    {/if}
   {/if}
 </div>
 
 <style>
+  /* Two panes, as in ak.Sys: the program's settings on the left, the
+     keygroup's and zone's on the right. Each scrolls on its own; panels are
+     as wide as their controls and pack together. */
   .editor {
-    padding: 12px 16px 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 16px 0;
+    box-sizing: border-box;
   }
   .bar {
+    flex: none;
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
-    padding-bottom: 10px;
-    margin-bottom: 12px;
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--rule);
   }
   .name {
@@ -439,38 +448,73 @@
   .empty {
     padding: 30px 0;
   }
-  .grid {
-    display: grid;
-    gap: 16px 12px;
+  .panes {
+    flex: 1;
+    min-height: 0;
+    display: flex;
   }
-  .grid.program {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  .pane {
+    overflow: auto;
+    padding-bottom: 12px;
   }
-  .grid.keygroup {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  .program-pane {
+    width: 488px;
+    flex: none;
+    padding-right: 14px;
+    border-right: 1px solid var(--rule);
+  }
+  .keygroup-pane {
+    flex: 1;
+    min-width: 0;
+    padding-left: 14px;
+  }
+  .pane-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    background: var(--bg);
+  }
+  .pane-head h2 {
+    margin: 0;
+    font-size: 14px;
+  }
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 14px;
+  }
+  .flow .panel {
+    flex: 1 1 auto;
+  }
+  .columns {
+    column-width: 300px;
+    column-gap: 14px;
+  }
+  .columns .panel {
+    break-inside: avoid;
+    margin-bottom: 8px;
   }
   .panel {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    padding-bottom: 10px;
+    gap: 4px;
+    padding-bottom: 4px;
     border-bottom: 1px solid var(--rule-soft);
   }
   .panel .sign {
-    align-self: stretch;
     margin: 0;
     /* A route-coloured edge identifies the panel's function. */
     border-left: 6px solid var(--route);
   }
-  .panel.other {
-    margin-top: 16px;
-  }
   .cells {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px 4px;
+    gap: 4px;
   }
   .stack {
     display: flex;
@@ -478,14 +522,10 @@
     align-items: center;
     gap: 2px;
   }
-  .keys {
-    position: relative;
-    margin: 20px 0 2px;
-    padding-bottom: 14px;
-  }
   .keyboard {
-    width: 100%;
-    height: 46px;
+    flex: 1;
+    min-width: 120px;
+    height: 26px;
     display: block;
   }
   .keyboard .white {
@@ -503,21 +543,11 @@
   .keyboard .range.current {
     fill: var(--accent);
   }
-  .octaves span {
-    position: absolute;
-    bottom: 0;
-    font-size: 9px;
-    color: var(--muted);
-    transform: translateX(-2px);
-  }
   .tabs,
   .zone-tabs {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-  }
-  .tabs {
-    margin: 6px 0 14px;
   }
   .tabs button,
   .zone-tabs button {
@@ -536,11 +566,30 @@
     color: var(--muted);
   }
   .range-text {
-    margin-left: 12px;
     font-size: 12px;
+    white-space: nowrap;
   }
   .sample {
-    margin-left: 10px;
-    min-width: 140px;
+    margin-left: 8px;
+    flex: 1;
+    min-width: 100px;
+  }
+  /* Narrow windows: one pane above the other, scrolling together. */
+  @media (max-width: 860px) {
+    .panes {
+      flex-direction: column;
+      overflow: auto;
+    }
+    .pane {
+      overflow: visible;
+    }
+    .program-pane {
+      width: auto;
+      padding-right: 0;
+      border-right: none;
+    }
+    .keygroup-pane {
+      padding-left: 0;
+    }
   }
 </style>

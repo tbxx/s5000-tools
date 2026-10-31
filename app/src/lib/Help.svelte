@@ -192,12 +192,13 @@
     <section id="program">
       <h2>Program editor <kbd>{mod}4</kbd></h2>
       <p>
-        Every program, keygroup and zone setting, in panels coloured by function: pitch blue, amplitude red, filter
+        Two panes, as in ak.Sys: the program's settings on the left, the selected keygroup's and zone's on the right,
+        each scrolling on its own. Every program, keygroup and zone setting, in panels coloured by function: pitch blue, amplitude red, filter
         green, LFOs purple. Choose a program in memory to edit it live: changes go to the sampler as you turn a knob or
         drag an envelope point. <b>Open .akp file…</b> shows a saved program, read-only.
       </p>
       <ul>
-        <li>Drag a knob up or down; double-click it to type a value.</li>
+        <li>Drag a knob up or down; double-click it to type a value. Hover over a knob to see its range.</li>
         <li>
           The keyboard strip shows each keygroup's key range; click one, or use the numbered tabs, to edit that
           keygroup. Zone tabs pick the zone (sample layer).

@@ -116,7 +116,11 @@
   }
 </script>
 
-<div class="control {kind}" class:unknown={!known} title={info.notes ?? info.label}>
+<div
+  class="control {kind}"
+  class:unknown={!known}
+  title="{info.notes ?? info.label}{kind === 'knob' ? ` (${min} to ${max})` : ''}"
+>
   {#if label !== ""}<span class="label">{label}</span>{/if}
   {#if kind === "knob"}
     <svg
@@ -143,7 +147,6 @@
         <line x1="0" y1="-4" x2="0" y2="-12" transform="rotate({angle(shown)})" class="pointer" />
       {/if}
     </svg>
-    <span class="range"><span>{min}</span><span>{max}</span></span>
     <span class="lcd readout">{shown === undefined ? "—" : format(info, shown)}</span>
   {:else if kind === "enum"}
     {#if editable && known}
@@ -218,15 +221,6 @@
   .pointer {
     stroke: var(--text);
     stroke-width: 1.5;
-  }
-  .range {
-    display: flex;
-    justify-content: space-between;
-    gap: 3px;
-    width: 56px;
-    font-size: 7.5px;
-    color: var(--muted);
-    margin-top: -5px;
   }
   .readout {
     font-size: 10px;
