@@ -77,7 +77,7 @@
         ["Home / End", "Lowest / highest value"],
         ["Enter or Space", "Type a value (knobs); Enter in a table cell"],
         [`${opt}↑ / ${opt}↓`, "Program: previous / next keygroup. Multi: the part above / below"],
-        [`${mod}click / ${shift}click`, "Multi: add a part to the selection / select a range of parts"],
+        [`${mod}click / ${shift}click`, "Add to the selection / select a range: parts (multi), keygroup tabs (program)"],
         [`${opt}← / ${opt}→`, "Program: previous / next zone. Mixer: the same control in the next strip"],
       ],
     },
@@ -205,8 +205,10 @@
           keygroup. Zone tabs pick the zone (sample layer).
         </li>
         <li>
-          <b>Edit all</b> (beside the keygroup tabs) sends keygroup edits to every keygroup, and zone edits to the same
-          zone in every keygroup. It turns itself off when you open another program.
+          Select several keygroups to edit them together: {mod}-click a keygroup tab (or its range on the keyboard) to
+          add or remove it, {shift}-click to select a range, or tick <b>Edit all</b>. Keygroup edits then go to every
+          selected keygroup, and zone edits to the same zone in each. Opening another program selects just its first
+          keygroup.
         </li>
         <li>Values greyed out are not stored in an .akp file; connect to read them live.</li>
       </ul>

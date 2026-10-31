@@ -4,12 +4,14 @@
   // come from the program's .akp, plus a live read of what the file lacks.
   // Programs in the sampler's memory can be edited live.
   import { onMount } from "svelte";
+  import { SvelteSet } from "svelte/reactivity";
   import { open } from "@tauri-apps/plugin-dialog";
   import Control from "./Control.svelte";
   import EnvGraph from "./EnvGraph.svelte";
   import { api, message, type ParamInfo, type ProgramView, type Values } from "./api";
   import { noteName } from "./format";
   import { rove } from "./keys";
+  import { modKey, modLabel } from "./prefs.svelte";
   import { app } from "./state.svelte";
 
   let { initial, onitem }: { initial?: string; onitem?: (name?: string) => void } = $props();
@@ -132,9 +134,39 @@
   let source = $state<{ memory: string } | { file: string } | null>(null);
   let live = $state<Values>({});
   let kg = $state(0);
-  /** Keygroup and zone edits go to every keygroup (the zone: the same zone
-   *  number in each), like the sampler's "ALL" keygroup. Off each time. */
-  let allKeygroups = $state(false);
+  /** Selected keygroups (always including `kg`). Keygroup and zone edits go
+   *  to each of them (the zone: the same zone number in each), like the
+   *  sampler's "ALL" keygroup. Back to one keygroup for each program. */
+  const chosen = new SvelteSet<number>([0]);
+  const allKeygroups = $derived(!!view && view.keygroups.length > 1 && chosen.size === view.keygroups.length);
+
+  /** Click a keygroup: just it. ⌘-click (Ctrl elsewhere): add or remove it.
+   *  ⇧-click: the range from the current keygroup. */
+  function pickKeygroup(e: MouseEvent, i: number) {
+    if (e.shiftKey) {
+      const [a, b] = [Math.min(kg, i), Math.max(kg, i)];
+      chosen.clear();
+      for (let k = a; k <= b; k++) chosen.add(k);
+    } else if (modKey(e)) {
+      if (chosen.has(i) && chosen.size > 1) {
+        chosen.delete(i);
+        if (kg === i) selectKeygroup([...chosen][0], false);
+        return;
+      }
+      chosen.add(i);
+    } else {
+      chosen.clear();
+      chosen.add(i);
+    }
+    selectKeygroup(i, false);
+  }
+
+  /** Edit all: every keygroup, or back to the current one. */
+  function setAll(on: boolean) {
+    chosen.clear();
+    if (on) view?.keygroups.forEach((_, i) => chosen.add(i));
+    else chosen.add(kg);
+  }
   let zone = $state(0);
   let loading = $state(false);
   let picked = $state("");
@@ -178,7 +210,8 @@
     try {
       view = await api.readProgram(name);
       source = { memory: name };
-      allKeygroups = false;
+      chosen.clear();
+      chosen.add(0);
       onitem?.(name);
       kg = 0;
       zone = 0;
@@ -197,6 +230,8 @@
       view = await api.readProgramFile(path);
       source = { file: path };
       onitem?.(undefined);
+      chosen.clear();
+      chosen.add(0);
       live = {};
       kg = 0;
       zone = 0;
@@ -228,7 +263,12 @@
     e.preventDefault();
   }
 
-  function selectKeygroup(i: number) {
+  /** Shows keygroup `i`; `alone` (⌥↑/⌥↓) also makes it the only one selected. */
+  function selectKeygroup(i: number, alone = true) {
+    if (alone) {
+      chosen.clear();
+      chosen.add(i);
+    }
     kg = i;
     readLive();
   }
@@ -248,7 +288,7 @@
     const [id, n] = ref.split("#");
     const info = catalog.get(id)!;
     const selector = info.scope === "zone" ? zone + 1 : n ? parseInt(n) : null;
-    const targets = info.scope !== "program" && allKeygroups ? view.keygroups.map((_, i) => i) : [kg];
+    const targets = info.scope !== "program" && chosen.size > 1 ? [...chosen].sort((a, b) => a - b) : [kg];
     // Show the new value at once.
     for (const k of targets) {
       const g = view.keygroups[k];
@@ -383,14 +423,17 @@
         <!-- The keygroup's tabs, range and the keyboard stay in view as the pane scrolls. -->
         <div class="pane-head">
           <h2>Keygroup</h2>
-          <div class="tabs" class:all={allKeygroups} use:rove>
+          <div class="tabs" use:rove>
             {#each view.keygroups as _, i}
-              <button class:active={i === kg} onclick={() => selectKeygroup(i)}>{i + 1}</button>
+              <button class:active={i === kg} class:chosen={chosen.has(i)} aria-pressed={chosen.has(i)} onclick={(e) => pickKeygroup(e, i)}
+                >{i + 1}</button
+              >
             {/each}
           </div>
           {#if editable && view.keygroups.length > 1}
-            <label class="all-toggle" title="Keygroup and zone edits go to every keygroup (zones: the same zone number in each)">
-              <input type="checkbox" bind:checked={allKeygroups} /> Edit all
+            {#if chosen.size > 1 && !allKeygroups}<span class="muted range-text">{chosen.size} selected</span>{/if}
+            <label class="all-toggle" title="Keygroup and zone edits go to every keygroup (zones: the same zone number in each). {modLabel}-click or Shift-click the tabs to pick some.">
+              <input type="checkbox" checked={allKeygroups} onchange={(e) => setAll(e.currentTarget.checked)} /> Edit all
             </label>
           {/if}
           {#if keygroup}
@@ -408,10 +451,10 @@
                 width={keyX(hi)[0] + keyX(hi)[1] - keyX(lo)[0]}
                 height={i === kg ? 2.4 : 1.2}
                 class="range"
-                class:current={i === kg || allKeygroups}
+                class:current={chosen.has(i)}
                 role="button"
                 tabindex="-1"
-                onclick={() => selectKeygroup(i)}
+                onclick={(e) => pickKeygroup(e, i)}
                 onkeydown={() => {}}
               />
             {/each}
@@ -579,8 +622,8 @@
     border-color: var(--text);
     color: var(--bg);
   }
-  /* Editing all keygroups: every tab and range is marked. */
-  .tabs.all button:not(.active) {
+  /* Other selected keygroups, which edits also go to. */
+  .tabs button.chosen:not(.active) {
     background: var(--select-soft);
   }
   .all-toggle {

@@ -58,8 +58,8 @@ any virtual machine first.
 - **Program (⌘4):** two panes, as in ak.Sys: the program's settings on the
   left, the keygroup's and zone's on the right, each scrolling on its own
   (one above the other in narrow windows). Every program, keygroup, zone and
-  envelope setting; a knob's range is in its tooltip. **Edit all** sends
-  keygroup and zone edits to every keygroup. Edits
+  envelope setting; a knob's range is in its tooltip. ⌘-click or ⇧-click
+  the keygroup tabs (or **Edit all**) to edit several keygroups at once. Edits
   go to the sampler as you turn knobs or drag envelope points. A `.akp`
   opened from the Mac is read-only.
 - **Multi (⌘5):** a multi's settings and a parts table like the sampler's
