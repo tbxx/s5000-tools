@@ -92,6 +92,8 @@
   /** Where the multi came from: a name in a sampler's memory, or a file. */
   let source = $state<{ memory: string; sampler: number } | { file: string } | null>(null);
   let live = $state<MultiLive>(emptyLive());
+  let { initial, onitem }: { initial?: string; onitem?: (name?: string) => void } = $props();
+
   let sel = $state(0);
   let picked = $state("");
   let loading = $state(false);
@@ -138,7 +140,16 @@
     });
   });
 
+  // Opened on a multi (a window of its own): load it once it is in memory.
+  let started = false;
+  $effect(() => {
+    if (started || !initial || !app.connected || !app.memory.multis.some((m) => m.name === initial)) return;
+    started = true;
+    void loadFromMemory(initial);
+  });
+
   function clear() {
+    onitem?.(undefined);
     view = null;
     source = null;
     live = emptyLive();
@@ -155,6 +166,7 @@
       view = v;
       source = { memory: name, sampler };
       picked = name;
+      onitem?.(name);
       if (fresh || sel >= v.parts.length) sel = 0;
       await readLive();
     } catch (e) {
@@ -170,6 +182,7 @@
     try {
       view = await api.readMultiFile(path);
       source = { file: path };
+      onitem?.(undefined);
       live = emptyLive();
       sel = 0;
       picked = "";

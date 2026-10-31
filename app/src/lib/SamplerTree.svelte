@@ -15,7 +15,7 @@
     playing: { sampler: number; name: string } | null;
     onrowdown: (e: PointerEvent, row: Row) => void;
     onrowclick: (e: MouseEvent, row: Row) => void;
-    onrowdbl: (row: Row) => void;
+    onrowdbl: (row: Row, e: MouseEvent) => void;
     onplay: (row: Row) => void;
     onkeydown: (e: KeyboardEvent) => void;
   }
@@ -97,7 +97,7 @@
         data-drop={drop}
         style:--depth={row.depth}
         onclick={(e) => onrowclick(e, row)}
-        ondblclick={() => onrowdbl(row)}
+        ondblclick={(e) => onrowdbl(row, e)}
         onpointerdown={(e) => onrowdown(e, row)}
       >
         <span class="disc" role="presentation" onclick={(e) => (e.stopPropagation(), tree.toggle(row))}>

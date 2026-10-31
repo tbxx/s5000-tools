@@ -6,6 +6,7 @@
 mod commands;
 mod disk;
 mod drag_out;
+mod menu;
 mod multi;
 mod params;
 mod samplers;
@@ -44,6 +45,15 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_drag::init())
         .plugin(window_state())
+        .plugin(tauri_plugin_opener::init())
+        .menu(menu::build)
+        .on_menu_event(|app, event| menu::handle(app, event.id().as_ref()))
+        // Closing the main window quits, closing the windows opened from it too.
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                window.app_handle().exit(0);
+            }
+        })
         .setup(|app| {
             let handle = app.handle().clone();
             app.manage(samplers::Samplers::new(move |id, event| {

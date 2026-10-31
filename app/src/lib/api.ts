@@ -197,6 +197,8 @@ export interface Settings {
   meterVuRef?: number;
   /** Show outputs 9-16 (they need the output expander board). */
   meterShowUpper?: boolean;
+  /** Windows open besides the main one, reopened at startup. */
+  windows?: { kind: import("./windows.svelte").WindowKind; item?: string }[];
 }
 
 type Id = number | undefined;

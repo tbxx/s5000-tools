@@ -31,6 +31,11 @@ replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
     output, mute/solo, FX, tuning, key range), live.
 - **Meters** in nine styles: LED and plasma bargraphs and moving-coil VUs,
   modelled on classic studio consoles.
+- **Windows**: any view can open in a window of its own, as in ak.Sys:
+  the front panel, the meters, and as many program and multi editors as
+  you like. They reopen at the next start.
+- **Keyboard**: every control can be reached and changed from the
+  keyboard; Help lists the shortcuts.
 - **Preferences** (⌘, / Ctrl+,): interface size (also ⌘+ / ⌘−, Ctrl on
   Windows and Linux), colour scheme (System, Light, Dark, Studio, Ivory, High
   contrast, Le Corbusier, Mies, Neon 80s, Cyberpunk) and meter style, each with a live preview, and connecting to

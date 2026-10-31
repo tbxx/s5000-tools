@@ -17,6 +17,7 @@
   import { dialogs } from "./dialogs.svelte";
   import { queue, type Job } from "./queue.svelte";
   import { app } from "./state.svelte";
+  import { windows } from "./windows.svelte";
   import { describePlace, folderKey, tree, type Row } from "./tree.svelte";
   import { canDrop, transfers, type Transferable } from "./requests.svelte";
 
@@ -124,7 +125,14 @@
     anchor = pick(e, row.key, rows.filter(selectable).map((r) => r.key), sel, anchor);
   }
 
-  function dblRow(row: Row) {
+  function dblRow(row: Row, e: MouseEvent) {
+    // ⌥-double-click opens a program or multi in an editor window.
+    if (e.altKey && row.type === "item" && (row.kind === "program" || row.kind === "multi")) {
+      const kind = row.kind;
+      // The editors work on the active sampler.
+      if (row.sampler !== app.active?.id) return void app.setActive(row.sampler).then(() => windows.show(kind, row.label));
+      return void windows.show(kind, row.label);
+    }
     if (row.type === "item" && row.source) send([asTransferable(row)], macPlace);
     else if (row.type === "file" && row.source) send([asTransferable(row)], { at: "memory", sampler: row.sampler });
     else if (row.expandable) tree.toggle(row);

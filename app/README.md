@@ -42,6 +42,15 @@ any virtual machine first.
   console, and Ivory, Amber and Black VU (`src/lib/meters/`). VU needles have
   VU ballistics; LED meters peak hold. The style, peak hold and the 0 VU
   reference are remembered.
+- **Windows:** the ⧉ button beside the view tabs, or the Window menu, opens
+  a view in a window of its own. The front panel and meters move there
+  (**Back to main window** returns them); program and multi editors can have
+  any number of windows, and ⌥-double-click in the tree opens one. Open
+  windows reopen at the next start. Closing the main window quits.
+- **Keyboard:** Tab moves between panels, ← → between a panel's controls,
+  ↑ ↓ change a value (Shift for bigger steps), F6 or ⌘] / ⌘[ between panes,
+  ⌥↑ ⌥↓ through keygroups or parts. The full list is in Help.
+- **Help (⌘⇧?):** a guide to every view, Preferences and the keyboard.
 - **Preferences (⌘,):** interface size (⌘+ / ⌘− / ⌘0 anywhere; the window
   grows with it) and connecting automatically: off, at startup (the
   default), or also whenever a sampler is switched on. A sampler you disconnect isn't

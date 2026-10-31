@@ -1,14 +1,21 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions for the main window",
+  "description": "Permissions for the main window and the windows opened from it",
   "windows": [
-    "main"
+    "*"
   ],
   "permissions": [
     "core:default",
     "core:webview:allow-set-webview-zoom",
+    "core:webview:allow-create-webview-window",
     "core:window:allow-set-size",
+    "core:window:allow-set-focus",
+    "core:window:allow-unminimize",
+    "core:window:allow-show",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:window:allow-set-title",
     "dialog:allow-open",
     "drag:default"
   ]

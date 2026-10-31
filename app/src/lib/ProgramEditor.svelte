@@ -12,7 +12,7 @@
   import { rove } from "./keys";
   import { app } from "./state.svelte";
 
-  let { initial }: { initial?: string } = $props();
+  let { initial, onitem }: { initial?: string; onitem?: (name?: string) => void } = $props();
 
   /** A parameter ("id" or "id#n"), or a mod source with its amount. */
   type Cell = string | { src: string; amt: string; label: string };
@@ -157,10 +157,16 @@
     } catch (e) {
       app.fail(e);
     }
-    if (initial) {
-      picked = initial;
-      await loadFromMemory(initial);
-    }
+  });
+
+  // Opened on a program: load it once it is in memory (a window of its own
+  // may open before the sampler is connected).
+  let started = false;
+  $effect(() => {
+    if (started || !initial || !app.connected || !app.memory.programs.some((p) => p.name === initial)) return;
+    started = true;
+    picked = initial;
+    void loadFromMemory(initial);
   });
 
   async function loadFromMemory(name: string) {
@@ -169,6 +175,7 @@
     try {
       view = await api.readProgram(name);
       source = { memory: name };
+      onitem?.(name);
       kg = 0;
       zone = 0;
       await readLive();
@@ -185,6 +192,7 @@
     try {
       view = await api.readProgramFile(path);
       source = { file: path };
+      onitem?.(undefined);
       live = {};
       kg = 0;
       zone = 0;

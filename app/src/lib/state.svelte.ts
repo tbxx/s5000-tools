@@ -2,7 +2,8 @@
 // status line. Several samplers can be connected; the "active" one is what
 // the front panel, meters and program editor use, and what `info`,
 // `memory` and `connected` describe.
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { api, message, type Info, type Memory, type Origin, type SamplerMeta, type Settings } from "./api";
 
 export interface SamplerView extends SamplerMeta {
@@ -13,6 +14,9 @@ export interface SamplerView extends SamplerMeta {
 
 const empty = (): Memory => ({ samples: [], programs: [], multis: [] });
 
+/** This window, so it can ignore its own broadcasts. */
+const self = getCurrentWebviewWindow().label;
+
 class AppState {
   samplers = $state<SamplerView[]>([]);
   connecting = $state(false);
@@ -21,6 +25,8 @@ class AppState {
   error = $state<string | null>(null);
   /** Bumped when a sampler's memory changes (after a transfer, delete, …). */
   changed = $state(0);
+  /** The settings file has been read. */
+  loaded = $state(false);
 
   get active(): SamplerView | undefined {
     return this.samplers.find((s) => s.active);
@@ -59,6 +65,7 @@ class AppState {
     } catch (e) {
       this.fail(e);
     }
+    this.loaded = true;
     await listen<{ id: number; message: string }>("sampler-lost", ({ payload }) => {
       const s = this.sampler(payload.id);
       if (s) {
@@ -81,6 +88,14 @@ class AppState {
         }, 400),
       );
     });
+    // Other windows changed the settings, or connected, disconnected or
+    // switched samplers.
+    await listen<{ from: string; settings: Settings }>("settings-changed", ({ payload }) => {
+      if (payload.from !== self) Object.assign(this.settings, payload.settings);
+    });
+    await listen<string>("samplers-changed", ({ payload: from }) => {
+      if (from !== self) void this.resync();
+    });
     // Samplers still connected from before a reload of the page.
     try {
       for (const m of await api.samplers()) this.track(m);
@@ -92,7 +107,30 @@ class AppState {
 
   save(patch: Partial<Settings>) {
     Object.assign(this.settings, patch);
-    api.saveSettings($state.snapshot(this.settings)).catch((e) => this.fail(e));
+    const settings = $state.snapshot(this.settings);
+    api.saveSettings(settings).catch((e) => this.fail(e));
+    void emit("settings-changed", { from: self, settings }).catch(() => {});
+  }
+
+  /** Tells the other windows the samplers changed. */
+  private announce() {
+    void emit("samplers-changed", self).catch(() => {});
+  }
+
+  /** Catches up with samplers another window connected, removed or made active. */
+  private async resync() {
+    try {
+      const list = await api.samplers();
+      this.samplers = this.samplers.filter((s) => list.some((m) => m.id === s.id));
+      for (const m of list) {
+        const was = this.sampler(m.id)?.status;
+        const s = this.track(m);
+        // New, or reconnected: read its memory.
+        if (s.status === "connected" && was !== "connected") void this.refresh(s.id);
+      }
+    } catch (e) {
+      this.fail(e);
+    }
   }
 
   fail(e: unknown) {
@@ -127,6 +165,7 @@ class AppState {
     try {
       const s = this.track(await api.addSampler(origin));
       this.say(`Connected to ${s.name}`);
+      this.announce();
       await this.refresh(s.id);
       return s;
     } catch (e) {
@@ -154,6 +193,7 @@ class AppState {
     await api.removeSampler(id).catch((e) => this.fail(e));
     this.samplers = this.samplers.filter((s) => s.id !== id);
     await this.sync().catch(() => {});
+    this.announce();
     this.say(`Disconnected ${name}`);
   }
 
@@ -167,6 +207,7 @@ class AppState {
     try {
       await api.setActive(id);
       for (const s of this.samplers) s.active = s.id === id;
+      this.announce();
     } catch (e) {
       this.fail(e);
     }
@@ -176,6 +217,7 @@ class AppState {
     try {
       this.track(await api.reconnectSampler(id));
       this.say(`Reconnected ${this.label(id)}`);
+      this.announce();
       await this.refresh(id);
     } catch (e) {
       this.fail(e);
