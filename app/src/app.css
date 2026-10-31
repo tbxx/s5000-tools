@@ -35,6 +35,7 @@
   --warn: var(--mta-yellow);
   --led: var(--mta-red);
   --route: var(--accent); /* set per panel; knobs and graphs use it */
+  --focus: var(--text); /* the keyboard focus ring */
 
   /* The sampler's LCD */
   --lcd-bg: #f4f4ef;
@@ -431,12 +432,21 @@ button.primary:hover:not(:disabled) {
   background: var(--text);
   opacity: 0.85;
 }
+/* Focus: a solid ring in the text colour, only while moving around with
+   the keyboard (main.ts sets data-input). After a click there is none, not
+   even the system's own. Dashed accent outlines are linked controls. */
+:focus {
+  outline: none;
+}
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 :where([tabindex]):focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
   outline-offset: 1px;
+}
+:root[data-input="pointer"] :focus {
+  outline: none !important;
 }
 
 /* Field */

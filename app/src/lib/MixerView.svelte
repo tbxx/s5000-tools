@@ -417,7 +417,7 @@
     cursor: pointer;
   }
   .prog:has(select:focus-visible) {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--focus);
     outline-offset: 1px;
   }
   .lcd-select,
