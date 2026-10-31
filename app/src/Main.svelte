@@ -59,6 +59,7 @@
     return () => clearInterval(timer);
   });
   let openProgram = $state<string | undefined>();
+  let openMulti = $state<string | undefined>();
   let prefsOpen = $state(false);
   // What the Program and Multi tabs show, and a counter that empties a tab
   // when its item moves to a window of its own.
@@ -74,6 +75,7 @@
       if (name) {
         item[kind] = undefined;
         if (kind === "program") openProgram = undefined;
+        else openMulti = undefined;
         epoch[kind]++;
       }
     } else await windows.show(kind);
@@ -103,11 +105,12 @@
     // "Back to main window" in the front panel or meters window.
     await listen<View>("dock", ({ payload }) => (view = payload));
     // For development: #connect=simulator&view=program&program=Drums connects
-    // to the simulator and opens a view (and a program).
+    // to the simulator and opens a view (and a program, or multi=…).
     const hash = new URLSearchParams(location.hash.slice(1));
     const v = views.find((x) => x.id === hash.get("view"));
     if (hash.get("connect") === "simulator") await app.connect({ kind: "simulator" });
     openProgram = hash.get("program") ?? undefined;
+    openMulti = hash.get("multi") ?? undefined;
     if (v) view = v.id;
     if (!hash.has("connect") && autoConnect() !== "off") await connectAll();
     await windows.init();
@@ -173,7 +176,7 @@
     {:else if view === "program"}
       {#key epoch.program}<ProgramEditor initial={openProgram} onitem={(n) => (item.program = n)} />{/key}
     {:else}
-      {#key epoch.multi}<MultiEditor onitem={(n) => (item.multi = n)} />{/key}
+      {#key epoch.multi}<MultiEditor initial={openMulti} onitem={(n) => (item.multi = n)} />{/key}
     {/if}
   </main>
 
@@ -198,6 +201,7 @@
   .shell {
     display: grid;
     grid-template-rows: auto 1fr auto;
+    grid-template-columns: minmax(0, 1fr);
     height: 100vh;
   }
   /* The top bar is a sign: black, with a hairline white rule just below the top edge. */
@@ -253,6 +257,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
+    min-width: 0;
   }
   .connection button,
   .connection select {
@@ -273,12 +278,15 @@
     background: var(--surface);
     color: var(--text);
   }
+  /* The sampler's details give way first when the window is narrow. */
   .info {
     display: flex;
     gap: 12px;
     font-size: 12px;
     color: var(--sign-muted);
     white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
   }
   .info b {
     color: var(--sign-text);

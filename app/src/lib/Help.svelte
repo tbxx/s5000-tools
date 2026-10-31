@@ -77,7 +77,7 @@
         ["Home / End", "Lowest / highest value"],
         ["Enter or Space", "Type a value (knobs); Enter in a table cell"],
         [`${opt}↑ / ${opt}↓`, "Program: previous / next keygroup. Multi: the part above / below"],
-        [`${opt}← / ${opt}→`, "Program: previous / next zone"],
+        [`${opt}← / ${opt}→`, "Program: previous / next zone. Mixer: the same control in the next strip"],
       ],
     },
     {
@@ -215,6 +215,12 @@
       </p>
       <ul>
         <li>Drag a number up or down (Shift for fine steps), or double-click it to type.</li>
+        <li>
+          <b>Table | Mixer</b> switches between the table and a mixing desk: a strip per part with its program, MIDI
+          channel, output, effects bus, send and pan knobs, key range, mute and solo, and a level fader. The desk shows
+          32 parts at a time; for bigger multis, the <b>All parts</b> overview above it picks the block. In the desk, ←
+          and → move through the controls and {opt}← {opt}→ to the same control in the next strip.
+        </li>
         <li><b>Only parts with a program</b> hides empty parts.</li>
         <li><b>New multi…</b> makes one in memory with 32, 64 or 128 parts.</li>
         <li>

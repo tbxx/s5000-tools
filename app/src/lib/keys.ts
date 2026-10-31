@@ -6,7 +6,7 @@
 // - Panes (`data-pane`) are the large regions of a view; ⌘[ and ⌘] (Ctrl
 //   elsewhere), or F6 and Shift+F6, move focus between them.
 
-const CONTROLS = 'svg[role="slider"], [role="spinbutton"], select, button, input, [data-rove-item]';
+const CONTROLS = '[role="slider"], [role="spinbutton"], select, button, input, [data-rove-item]';
 
 function items(group: HTMLElement): HTMLElement[] {
   return [...group.querySelectorAll<HTMLElement>(CONTROLS)].filter(

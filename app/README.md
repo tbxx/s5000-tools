@@ -63,6 +63,8 @@ any virtual machine first.
   and send, transpose, fine tune and key range per part. Drag a number up or
   down (Shift for fine steps), or double-click it to type a value; edits go to
   the sampler as you change them. Selecting a row shows that part as knobs.
+  **Table | Mixer** switches to a mixing desk: a strip per part with
+  menus, send and pan knobs, key range, mute/solo and a level fader.
   **New multi…** creates one in memory with 32, 64 or 128 parts. A `.akm`
   opened from the Mac is read-only, and lacks mute, solo and the multi
   number, which are only read live. The effects are not edited here.
@@ -77,7 +79,8 @@ For development, a URL hash connects to the simulator and opens a view:
 npx tauri dev --config '{"build":{"devUrl":"http://localhost:1420/#connect=simulator&view=program&program=Drums"}}'
 ```
 
-`view` is `transfers`, `panel`, `meters`, `program` or `multi`. Set
+`view` is `transfers`, `panel`, `meters`, `program` or `multi`; `multi=Song`
+opens a multi. Set
 `S5000_TOOLS_CONFIG_DIR` to keep settings (the last Mac folder and toggles)
 somewhere other than the app's config folder.
 

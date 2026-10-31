@@ -9,6 +9,7 @@
   import { onMount, untrack } from "svelte";
   import { open } from "@tauri-apps/plugin-dialog";
   import Control from "./Control.svelte";
+  import MixerView from "./MixerView.svelte";
   import NumCell from "./NumCell.svelte";
   import { api, message, type MultiLive, type MultiView, type ParamInfo } from "./api";
   import { dialogs } from "./dialogs.svelte";
@@ -105,6 +106,7 @@
     !!source && "memory" in source && app.connected && app.active?.id === source.sampler,
   );
   const part = $derived(view?.parts[sel]);
+  const mode = $derived(app.settings.multiView ?? "table");
   const rows = $derived(
     (view?.parts ?? []).map((p, i) => ({ p, i })).filter(({ p, i }) => !usedOnly || p.program || i === sel),
   );
@@ -371,6 +373,11 @@
         {#each app.memory.multis as m}<option value={m.name}>{m.name}</option>{/each}
       </select>
     </label>
+    <span class="segments views" role="radiogroup" aria-label="Show the parts as">
+      {#each [["table", "Table"], ["mixer", "Mixer"]] as [id, name]}
+        <button role="radio" aria-checked={mode === id} class:active={mode === id} onclick={() => app.save({ multiView: id as "table" | "mixer" })}>{name}</button>
+      {/each}
+    </span>
     <button onclick={newMulti} disabled={!app.connected || loading}>New multi…</button>
     <button onclick={loadFile}>Open .akm file…</button>
     {#if view}
@@ -425,93 +432,107 @@
       </div>
     </section>
 
-    <div class="layout">
-      <div class="table-wrap" data-pane>
-        <table class="parts">
-          <colgroup>
-            <col class="w-part" />
-            <col class="w-program" />
-            {#each groups as g}
-              {#each g.cols as c}<col class="w-{c.kind === 'bool' ? 'bool' : c.kind === 'enum' ? 'enum' : 'num'}" />{/each}
-            {/each}
-            <col class="w-range" />
-          </colgroup>
-          <thead>
-            <tr class="groups">
-              <th colspan="2" class="sign-cell" style:--route="var(--mta-purple)">Part</th>
+    {#if mode === "mixer"}
+      <MixerView
+        {view}
+        valueOf={(p, id) => valueOf(p, id)}
+        write={(p, id, v) => write(p, id, v)}
+        {info}
+        {editable}
+        bind:sel
+        {usedOnly}
+        {programChoices}
+        {assign}
+      />
+    {:else}
+      <div class="layout">
+        <div class="table-wrap" data-pane>
+          <table class="parts">
+            <colgroup>
+              <col class="w-part" />
+              <col class="w-program" />
               {#each groups as g}
-                <th colspan={g.cols.length + (g.title === "Keys" ? 1 : 0)} class="sign-cell" style:--route="var(--mta-{g.route})">
-                  {g.title}
-                </th>
+                {#each g.cols as c}<col class="w-{c.kind === 'bool' ? 'bool' : c.kind === 'enum' ? 'enum' : 'num'}" />{/each}
               {/each}
-            </tr>
-            <tr class="heads">
-              <th class="num-head">#</th>
-              <th>Program</th>
-              {#each groups as g}
-                {#each g.cols as c}<th class:center={c.kind !== "num"} class:num-head={c.kind === "num"} title={info(c.id)?.label}>{c.head}</th>{/each}
-              {/each}
-              <th>Range</th>
-            </tr>
-          </thead>
-          <tbody use:rove>
-            {#each rows as { p, i } (i)}
-              <tr class:selected={i === sel} class:empty-part={!p.program} onpointerdown={() => (sel = i)} onfocusin={() => (sel = i)}>
-                <td class="partno"><button class="pick" onclick={() => (sel = i)} aria-label="Part {i + 1}">{i + 1}</button></td>
-                <td>{@render programPicker(i, p.program, false)}</td>
+              <col class="w-range" />
+            </colgroup>
+            <thead>
+              <tr class="groups">
+                <th colspan="2" class="sign-cell" style:--route="var(--mta-purple)">Part</th>
                 {#each groups as g}
-                  {#each g.cols as c}<td class:center={c.kind !== "num"} style:--route="var(--mta-{g.route})">{@render cellFor(i, c)}</td>{/each}
+                  <th colspan={g.cols.length + (g.title === "Keys" ? 1 : 0)} class="sign-cell" style:--route="var(--mta-{g.route})">
+                    {g.title}
+                  </th>
                 {/each}
-                <td class="range" title={span(i) ? `${noteName(valueOf(i, `${P}low_key`)!)} – ${noteName(valueOf(i, `${P}high_key`)!)}` : ""}>
-                  {#if span(i)}
-                    {@const [x, w] = span(i)!}
-                    <span class="track"><span class="span" style:left="{x}%" style:width="{w}%"></span></span>
-                  {/if}
-                </td>
               </tr>
-            {/each}
-          </tbody>
-        </table>
-        {#if !rows.length}<p class="muted no-rows">No part has a program.</p>{/if}
-      </div>
-
-      {#if part}
-        <aside class="detail" data-pane>
-          <h3 class="sign head" style:--route="var(--mta-purple)">
-            Part {sel + 1}
-            <span class="sign-muted">{part.program ?? "no program"}</span>
-            <span class="step">
-              <button class="small" onclick={() => (sel = Math.max(0, sel - 1))} disabled={sel === 0} aria-label="Previous part">‹</button>
-              <button class="small" onclick={() => (sel = Math.min(view!.parts.length - 1, sel + 1))} disabled={sel === view.parts.length - 1} aria-label="Next part">›</button>
-            </span>
-          </h3>
-          <div class="program-row">
-            <span class="label">Program</span>
-            {@render programPicker(sel, part.program, true)}
-          </div>
-          {#each detail as d}
-            <section class="panel" style:--route="var(--mta-{d.route})" use:rove>
-              <h3 class="sign">{d.title}</h3>
-              <div class="cells">
-                {#each d.ids as id}
-                  {@const i = info(P + id)}
-                  {#if i}
-                    <span class="ctl" style:--route={lit[P + id] ?? `var(--mta-${d.route})`}>
-                      <Control
-                        info={i}
-                        value={valueOf(sel, P + id)}
-                        label={shortDetailLabel(i)}
-                        onchange={editable ? (v) => write(sel, P + id, v) : undefined}
-                      />
-                    </span>
-                  {/if}
+              <tr class="heads">
+                <th class="num-head">#</th>
+                <th>Program</th>
+                {#each groups as g}
+                  {#each g.cols as c}<th class:center={c.kind !== "num"} class:num-head={c.kind === "num"} title={info(c.id)?.label}>{c.head}</th>{/each}
                 {/each}
-              </div>
-            </section>
-          {/each}
-        </aside>
-      {/if}
-    </div>
+                <th>Range</th>
+              </tr>
+            </thead>
+            <tbody use:rove>
+              {#each rows as { p, i } (i)}
+                <tr class:selected={i === sel} class:empty-part={!p.program} onpointerdown={() => (sel = i)} onfocusin={() => (sel = i)}>
+                  <td class="partno"><button class="pick" onclick={() => (sel = i)} aria-label="Part {i + 1}">{i + 1}</button></td>
+                  <td>{@render programPicker(i, p.program, false)}</td>
+                  {#each groups as g}
+                    {#each g.cols as c}<td class:center={c.kind !== "num"} style:--route="var(--mta-{g.route})">{@render cellFor(i, c)}</td>{/each}
+                  {/each}
+                  <td class="range" title={span(i) ? `${noteName(valueOf(i, `${P}low_key`)!)} – ${noteName(valueOf(i, `${P}high_key`)!)}` : ""}>
+                    {#if span(i)}
+                      {@const [x, w] = span(i)!}
+                      <span class="track"><span class="span" style:left="{x}%" style:width="{w}%"></span></span>
+                    {/if}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+          {#if !rows.length}<p class="muted no-rows">No part has a program.</p>{/if}
+        </div>
+
+        {#if part}
+          <aside class="detail" data-pane>
+            <h3 class="sign head" style:--route="var(--mta-purple)">
+              Part {sel + 1}
+              <span class="sign-muted">{part.program ?? "no program"}</span>
+              <span class="step">
+                <button class="small" onclick={() => (sel = Math.max(0, sel - 1))} disabled={sel === 0} aria-label="Previous part">‹</button>
+                <button class="small" onclick={() => (sel = Math.min(view!.parts.length - 1, sel + 1))} disabled={sel === view.parts.length - 1} aria-label="Next part">›</button>
+              </span>
+            </h3>
+            <div class="program-row">
+              <span class="label">Program</span>
+              {@render programPicker(sel, part.program, true)}
+            </div>
+            {#each detail as d}
+              <section class="panel" style:--route="var(--mta-{d.route})" use:rove>
+                <h3 class="sign">{d.title}</h3>
+                <div class="cells">
+                  {#each d.ids as id}
+                    {@const i = info(P + id)}
+                    {#if i}
+                      <span class="ctl" style:--route={lit[P + id] ?? `var(--mta-${d.route})`}>
+                        <Control
+                          info={i}
+                          value={valueOf(sel, P + id)}
+                          label={shortDetailLabel(i)}
+                          onchange={editable ? (v) => write(sel, P + id, v) : undefined}
+                        />
+                      </span>
+                    {/if}
+                  {/each}
+                </div>
+              </section>
+            {/each}
+          </aside>
+        {/if}
+      </div>
+    {/if}
   {/if}
 </div>
 
