@@ -3,6 +3,9 @@
   // value beneath. Drag up or down (Shift for fine steps); ↑/↓ step (Shift
   // ×10), Home/End the ends; Enter or a double-click to type.
   import type { ParamInfo } from "./api";
+  import { onDestroy } from "svelte";
+  import { linked, numberMember } from "./linked.svelte";
+  import { modKey } from "./prefs.svelte";
   import { dialogs } from "./dialogs.svelte";
   import { formatPart } from "./partFormat";
   import { throttled } from "./throttle";
@@ -23,6 +26,20 @@
   const shown = $derived(local ?? value);
   const live = throttled((v) => onchange?.(v));
 
+  // Linking (linked.svelte.ts): ⌘-click adds it to the linked set; linked
+  // number controls follow by the same amount.
+  const member = numberMember(() => value, () => [min, max], live);
+  const isLinked = $derived(linked.has(member));
+  onDestroy(() => linked.remove(member));
+  function link(e: MouseEvent) {
+    if (!editable || !modKey(e)) return false;
+    // Not also a click on the part's row or strip (selecting parts).
+    e.preventDefault();
+    e.stopPropagation();
+    linked.toggle(member);
+    return true;
+  }
+
   const SWEEP = 270;
   const angle = (v: number) => -SWEEP / 2 + ((clamp(v) - min) / (max - min || 1)) * SWEEP;
   function arc(a0: number, a1: number, r = 15) {
@@ -40,7 +57,8 @@
   let dragging = false;
 
   function down(e: PointerEvent) {
-    if (!editable || value === undefined || e.button !== 0) return;
+    if (link(e) || !editable || value === undefined || e.button !== 0) return;
+    linked.begin(member);
     try {
       (e.currentTarget as Element).setPointerCapture(e.pointerId);
     } catch {
@@ -58,6 +76,7 @@
     if (next !== local) {
       local = next;
       live.push(next);
+      linked.follow(member, next - startV, next);
     }
   }
 
@@ -66,6 +85,7 @@
     dragging = false;
     if (local !== null && local !== startV) live.done(local);
     local = null;
+    linked.end(member);
   }
 
   function key(e: KeyboardEvent) {
@@ -82,8 +102,13 @@
       void type();
     } else if (e.key in to) {
       e.preventDefault();
+      if (local === null) {
+        startV = value;
+        linked.begin(member);
+      }
       local = clamp(to[e.key]);
       live.push(local);
+      linked.follow(member, local - startV, local);
     }
   }
 
@@ -91,19 +116,23 @@
     if (local === null || dragging) return;
     live.done(local);
     local = null;
+    linked.end(member);
   }
 
   async function type() {
     if (!editable) return;
     const r = await dialogs.ask(label, [{ label: `${min} to ${max}`, value: String(value ?? "") }], "Set");
     const v = r ? parseInt(r[0]) : NaN;
-    if (!Number.isNaN(v)) onchange?.(clamp(v));
+    if (Number.isNaN(v)) return;
+    onchange?.(clamp(v));
+    linked.once(member, clamp(v) - (value ?? 0), clamp(v));
   }
 </script>
 
 <div
   class="knob"
   class:editable
+  class:linked={isLinked}
   role="slider"
   aria-label={label}
   aria-valuemin={min}
@@ -164,6 +193,10 @@
     line-height: 11px;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+  .knob.linked {
+    outline: 2px dashed var(--accent);
+    outline-offset: 0;
   }
   .knob:focus-visible {
     outline: 2px solid var(--accent);

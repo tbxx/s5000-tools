@@ -5,6 +5,9 @@
   // fine steps), arrow keys step (Shift ×10), double-click to type. Writes go
   // through the shared live-write throttle, as the knobs' do.
   import type { ParamInfo } from "./api";
+  import { onDestroy } from "svelte";
+  import { linked, numberMember } from "./linked.svelte";
+  import { modKey } from "./prefs.svelte";
   import { dialogs } from "./dialogs.svelte";
   import { formatPart } from "./partFormat";
   import { throttled } from "./throttle";
@@ -30,6 +33,20 @@
   const shown = $derived(local ?? value);
   const live = throttled((v) => onchange?.(v));
 
+  // Linking (linked.svelte.ts): ⌘-click adds it to the linked set; linked
+  // number controls follow by the same amount.
+  const member = numberMember(() => value, () => [min, max], live);
+  const isLinked = $derived(linked.has(member));
+  onDestroy(() => linked.remove(member));
+  function link(e: MouseEvent) {
+    if (!editable || !modKey(e)) return false;
+    // Not also a click on the part's row or strip (selecting parts).
+    e.preventDefault();
+    e.stopPropagation();
+    linked.toggle(member);
+    return true;
+  }
+
   // The bar grows from 0 for bipolar ranges (pan, tuning), from the left otherwise.
   const frac = (v: number) => (max > min ? (clamp(v) - min) / (max - min) : 0);
   const fill = $derived.by(() => {
@@ -43,7 +60,8 @@
   let startV = 0;
 
   function down(e: PointerEvent) {
-    if (!editable || value === undefined || e.button !== 0) return;
+    if (link(e) || !editable || value === undefined || e.button !== 0) return;
+    linked.begin(member);
     try {
       (e.currentTarget as Element).setPointerCapture(e.pointerId);
     } catch {
@@ -63,6 +81,7 @@
     if (next !== local) {
       local = next;
       live.push(next);
+      linked.follow(member, next - startV, next);
     }
   }
 
@@ -70,6 +89,7 @@
     if (local === null) return;
     if (local !== startV) live.done(local);
     local = null;
+    linked.end(member);
   }
 
   function key(e: KeyboardEvent) {
@@ -78,8 +98,13 @@
     if (step) {
       e.preventDefault();
       const next = clamp((local ?? value) + step * (e.shiftKey ? 10 : 1));
+      if (local === null) {
+        startV = value;
+        linked.begin(member);
+      }
       local = next;
       live.push(next);
+      linked.follow(member, next - startV, next);
     } else if (e.key === "Enter") {
       e.preventDefault();
       void type();
@@ -90,13 +115,16 @@
     if (local === null) return;
     live.done(local);
     local = null;
+    linked.end(member);
   }
 
   async function type() {
     if (!editable) return;
     const r = await dialogs.ask(info.label, [{ label: `${min} to ${max}`, value: String(value ?? "") }], "Set");
     const v = r ? parseInt(r[0]) : NaN;
-    if (!Number.isNaN(v)) onchange?.(clamp(v));
+    if (Number.isNaN(v)) return;
+    onchange?.(clamp(v));
+    linked.once(member, clamp(v) - (value ?? 0), clamp(v));
   }
 </script>
 
@@ -105,6 +133,7 @@
   class:editable
   class:unknown={shown === undefined}
   class:dragging={local !== null}
+  class:linked={isLinked}
   role="spinbutton"
   tabindex={editable ? 0 : -1}
   aria-label={info.label}
@@ -153,6 +182,10 @@
   .num:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: -1px;
+  }
+  .num.linked {
+    outline: 2px dashed var(--accent);
+    outline-offset: 1px;
   }
   .unknown {
     color: var(--muted);

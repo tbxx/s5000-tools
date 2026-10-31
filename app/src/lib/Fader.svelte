@@ -4,6 +4,9 @@
   // Home/End the ends, Enter to type. Writes go through the live-write
   // throttle. The fill is the level colour (--level).
   import type { ParamInfo } from "./api";
+  import { onDestroy } from "svelte";
+  import { linked, numberMember } from "./linked.svelte";
+  import { modKey } from "./prefs.svelte";
   import { dialogs } from "./dialogs.svelte";
   import { throttled } from "./throttle";
 
@@ -24,6 +27,21 @@
   const pct = $derived(shown === undefined || max <= min ? 0 : ((shown - min) / (max - min)) * 100);
   const live = throttled((v) => onchange?.(v));
   let rect: DOMRect | null = null;
+  let startV = 0;
+
+  // Linking (linked.svelte.ts): ⌘-click adds it to the linked set; linked
+  // number controls follow by the same amount.
+  const member = numberMember(() => value, () => [min, max], live);
+  const isLinked = $derived(linked.has(member));
+  onDestroy(() => linked.remove(member));
+  function link(e: MouseEvent) {
+    if (!editable || !modKey(e)) return false;
+    // Not also a click on the part's row or strip (selecting parts).
+    e.preventDefault();
+    e.stopPropagation();
+    linked.toggle(member);
+    return true;
+  }
 
   function at(e: PointerEvent) {
     if (!rect) return;
@@ -31,11 +49,14 @@
     if (next !== local) {
       local = next;
       live.push(next);
+      linked.follow(member, next - startV, next);
     }
   }
 
   function down(e: PointerEvent) {
-    if (!editable || e.button !== 0) return;
+    if (link(e) || !editable || value === undefined || e.button !== 0) return;
+    startV = value;
+    linked.begin(member);
     const el = e.currentTarget as HTMLElement;
     try {
       el.setPointerCapture(e.pointerId);
@@ -49,6 +70,7 @@
 
   function up() {
     if (local !== null && rect) live.done(local);
+    if (rect) linked.end(member);
     rect = null;
     local = null;
   }
@@ -70,8 +92,13 @@
       void type();
     } else if (e.key in to) {
       e.preventDefault();
+      if (local === null) {
+        startV = value;
+        linked.begin(member);
+      }
       local = clamp(to[e.key]);
       live.push(local);
+      linked.follow(member, local - startV, local);
     }
   }
 
@@ -79,18 +106,22 @@
     if (local === null || rect) return;
     live.done(local);
     local = null;
+    linked.end(member);
   }
 
   async function type() {
     const r = await dialogs.ask(label, [{ label: `${min} to ${max}`, value: String(value ?? "") }], "Set");
     const v = r ? parseInt(r[0]) : NaN;
-    if (!Number.isNaN(v)) onchange?.(clamp(v));
+    if (Number.isNaN(v)) return;
+    onchange?.(clamp(v));
+    linked.once(member, clamp(v) - (value ?? 0), clamp(v));
   }
 </script>
 
 <div
   class="fader"
   class:editable
+  class:linked={isLinked}
   role="slider"
   aria-label={label}
   aria-orientation="vertical"
@@ -159,6 +190,10 @@
     top: 4px;
     height: 2px;
     background: var(--bg);
+  }
+  .fader.linked {
+    outline: 2px dashed var(--accent);
+    outline-offset: 1px;
   }
   .fader:focus-visible {
     outline: 2px solid var(--accent);

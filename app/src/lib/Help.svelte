@@ -18,6 +18,7 @@
     ["meters", "Meters"],
     ["program", "Program editor"],
     ["multi", "Multi editor"],
+    ["linking", "Linking controls"],
     ["windows", "Windows"],
     ["prefs", "Preferences"],
     ["keys", "Keyboard"],
@@ -78,6 +79,7 @@
         ["Enter or Space", "Type a value (knobs); Enter in a table cell"],
         [`${opt}↑ / ${opt}↓`, "Program: previous / next keygroup. Multi: the part above / below"],
         [`${mod}click / ${shift}click`, "Add to the selection / select a range: parts (multi), keygroup tabs (program)"],
+        [`${mod}click a control`, "Link it: linked controls change together. Esc unlinks all"],
         [`${opt}← / ${opt}→`, "Program: previous / next zone. Mixer: the same control in the next strip"],
       ],
     },
@@ -241,6 +243,26 @@
           sampler.
         </li>
       </ul>
+    </section>
+
+    <section id="linking">
+      <h2>Linking controls</h2>
+      <p>
+        {mod}-click any knob, fader, number, switch or menu to link it; it gets a dashed outline. {mod}-click it again
+        to unlink it, or press Esc to unlink everything. Changing one linked control changes the others of the same
+        kind:
+      </p>
+      <ul>
+        <li>
+          Knobs, faders and numbers move by the same amount, each within its own range: turn a linked Attack up by 10
+          and every linked knob goes up by 10.
+        </li>
+        <li>Switches, and menus with the same choices, take the same setting.</li>
+      </ul>
+      <p>
+        Links work across panels, keygroups' and zones' controls, and between the program and multi editors' knobs. With
+        several parts or keygroups selected as well, each linked control changes all of them.
+      </p>
     </section>
 
     <section id="windows">

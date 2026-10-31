@@ -42,6 +42,10 @@ any virtual machine first.
   console, and Ivory, Amber and Black VU (`src/lib/meters/`). VU needles have
   VU ballistics; LED meters peak hold. The style, peak hold and the 0 VU
   reference are remembered.
+- **Linking:** ⌘-click knobs, faders, numbers, switches or menus to link
+  them (dashed outline); changing one changes the others of its kind:
+  numbers by the same amount, switches and menus to the same setting. Esc
+  unlinks them.
 - **Windows:** the ⧉ button beside the view tabs, or the Window menu, opens
   a view in a window of its own. The front panel and meters move there
   (**Back to main window** returns them); program and multi editors can have

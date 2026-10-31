@@ -5,7 +5,10 @@
   // a tenth of the range), Page Up/Down a tenth, Home/End the ends, Enter to
   // type. The knob's arc is in the panel's route colour (--route).
   import type { ParamInfo } from "./api";
+  import { onDestroy } from "svelte";
   import { dialogs } from "./dialogs.svelte";
+  import { linked, numberMember, type Member } from "./linked.svelte";
+  import { modKey } from "./prefs.svelte";
   import { format } from "./format";
   import { throttled } from "./throttle";
 
@@ -51,12 +54,41 @@
   let startV = 0;
   const live = throttled((v) => onchange?.(v));
 
+  // Linking (linked.svelte.ts): knobs follow by the same amount; switches,
+  // and menus with the same choices, take the same value.
+  function makeMember(): Member {
+    if (info.encoding === "bool") return { kind: "switch", begin() {}, follow: (_, v) => onchange?.(v), end() {} };
+    if (info.encoding === "enum" && info.options)
+      return { kind: `menu:${info.options.join("|")}`, begin() {}, follow: (_, v) => onchange?.(v), end() {} };
+    return numberMember(() => value, () => [min, max], live);
+  }
+  const member = makeMember();
+  const isLinked = $derived(linked.has(member));
+  onDestroy(() => linked.remove(member));
+
+  /** ⌘-click (Ctrl elsewhere) adds the control to the linked set or takes it out. */
+  function link(e: MouseEvent) {
+    if (!editable || !modKey(e)) return false;
+    // Not also a click on the part's row or strip (selecting parts).
+    e.preventDefault();
+    e.stopPropagation();
+    linked.toggle(member);
+    return true;
+  }
+
+  /** A one-off change, passed on to the linked controls. */
+  function change(v: number) {
+    onchange?.(v);
+    linked.once(member, v - (value ?? v), v);
+  }
+
   function down(e: PointerEvent) {
-    if (!editable || value === undefined) return;
+    if (link(e) || !editable || value === undefined) return;
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
     startY = e.clientY;
     startV = value;
     local = value;
+    linked.begin(member);
   }
 
   function move(e: PointerEvent) {
@@ -67,6 +99,7 @@
     if (next !== local) {
       local = next;
       live.push(next);
+      linked.follow(member, next - startV, next);
     }
   }
 
@@ -74,6 +107,7 @@
     if (local === null) return;
     if (local !== startV) live.done(local);
     local = null;
+    linked.end(member);
   }
 
   function key(e: KeyboardEvent) {
@@ -96,8 +130,13 @@
       e.preventDefault();
       const next = Math.min(max, Math.max(min, to[e.key]));
       if (next !== from) {
+        if (local === null) {
+          startV = value;
+          linked.begin(member);
+        }
         local = next;
         live.push(next);
+        linked.follow(member, next - startV, next);
       }
     }
   }
@@ -106,19 +145,21 @@
     if (local === null) return;
     live.done(local);
     local = null;
+    linked.end(member);
   }
 
   async function type() {
     if (!editable) return;
     const r = await dialogs.ask(info.label, [{ label: `${min} to ${max}`, value: String(value ?? "") }], "Set");
     const v = r ? parseInt(r[0]) : NaN;
-    if (!Number.isNaN(v)) onchange?.(Math.min(max, Math.max(min, v)));
+    if (!Number.isNaN(v)) change(Math.min(max, Math.max(min, v)));
   }
 </script>
 
 <div
   class="control {kind}"
   class:unknown={!known}
+  class:linked={isLinked}
   title="{info.notes ?? info.label}{kind === 'knob' ? ` (${min} to ${max})` : ''}"
 >
   {#if label !== ""}<span class="label">{label}</span>{/if}
@@ -150,7 +191,12 @@
     <span class="lcd readout">{shown === undefined ? "—" : format(info, shown)}</span>
   {:else if kind === "enum"}
     {#if editable && known}
-      <select class="lcd menu" value={value} onchange={(e) => onchange?.(parseInt(e.currentTarget.value))}>
+      <select
+        class="lcd menu"
+        {value}
+        onpointerdown={link}
+        onchange={(e) => change(parseInt(e.currentTarget.value))}
+      >
         {#each info.options ?? [] as o, i}<option value={i}>{o}</option>{/each}
       </select>
     {:else}
@@ -161,7 +207,7 @@
       class="switch"
       class:on={value === 1}
       disabled={!editable || !known}
-      onclick={() => onchange?.(value === 1 ? 0 : 1)}
+      onclick={(e) => link(e) || change(value === 1 ? 0 : 1)}
       aria-pressed={value === 1}
     >
       {value === undefined ? "—" : value ? "ON" : "OFF"}
@@ -183,6 +229,11 @@
   }
   .unknown {
     opacity: 0.45;
+  }
+  /* In the linked set: changing it changes the others. */
+  .linked {
+    outline: 2px dashed var(--accent);
+    outline-offset: 2px;
   }
   .label {
     font-size: 9.5px;
