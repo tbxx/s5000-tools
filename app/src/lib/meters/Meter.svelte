@@ -100,10 +100,13 @@
           <text x={l.x} y={l.y} fill={l.red ? theme.red : theme.ink} font-size="17" font-weight="700" text-anchor="middle">{l.text}</text>
         {/each}
         <text x="200" y="190" fill={theme.ink} font-size="26" font-weight="700" text-anchor="middle" letter-spacing="2">VU</text>
-        <g style:transform="rotate({needleDeg}deg)" style:transform-origin="203px 304px">
+        <!-- SVG's own rotate(): the pivot is in drawing units at any size. A CSS
+             transform-origin in px is read in screen pixels, so a scaled meter
+             swung its needle around the wrong point. -->
+        <g transform="rotate({needleDeg} 203 304)">
           <line x1="203" y1="304" x2="203" y2="78" stroke="#000" stroke-opacity="0.22" stroke-width="3" />
         </g>
-        <g style:transform="rotate({needleDeg}deg)" style:transform-origin="200px 300px">
+        <g transform="rotate({needleDeg} 200 300)">
           <line x1="200" y1="300" x2="200" y2="74" stroke={theme.needle} stroke-width="2.2" stroke-linecap="round" />
         </g>
         <path d="M 146 252 A 54 54 0 0 1 254 252 Z" fill="url(#hub-{uid})" />
