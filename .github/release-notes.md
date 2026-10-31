@@ -1,6 +1,7 @@
-**Alpha.** An open replacement for Akai's ak.Sys for the S5000/S6000 over
-USB, on macOS, Windows and Linux. It works for its author on an S5000 with
-OS 2.14 on macOS; everything else is untested so far. Keep backups, and
+**Beta.** An open replacement for Akai's ak.Sys for the S5000/S6000 over
+USB, on macOS, Windows and Linux. Everything is in place and in daily use
+by its author on an S5000 with OS 2.14 on macOS; other setups are less
+tested. Keep backups, and
 please [report](https://github.com/tbxx/s5000-tools/issues) what works and
 what doesn't.
 

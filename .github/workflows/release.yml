@@ -1,6 +1,6 @@
 name: Release
 
-# Pushing a tag like v0.1.0-alpha.1 builds the app and the s5k command for
+# Pushing a tag like v0.1.0-beta.1 builds the app and the s5k command for
 # macOS, Windows and Linux and attaches them to a *draft* GitHub release;
 # nothing is public until the draft is published. Running the workflow by
 # hand (Actions -> Release -> Run workflow) builds the same files as workflow
@@ -27,7 +27,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          # Tags with a suffix (v0.1.0-alpha.1) are pre-releases.
+          # Tags with a suffix (v0.1.0-beta.1) are pre-releases.
           pre=false
           case "$TAG" in *-*) pre=true;; esac
           # Creating it through the API returns its id directly (a new draft

@@ -4,8 +4,8 @@ Open tools for the **Akai S5000/S6000** sampler over USB: transfer samples,
 programs and multis, edit them, view the front panel and meters. They
 replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
 
-> **Alpha.** This works for its author on one sampler. It may still do
-> something unexpected on yours: keep backups of anything you care about,
+> **Beta.** Everything is in place and in daily use by its author on one
+> sampler. It may still do something unexpected on yours: keep backups of anything you care about,
 > and please [report](https://github.com/tbxx/s5000-tools/issues) what works
 > and what doesn't, with your model, OS version and computer.
 
