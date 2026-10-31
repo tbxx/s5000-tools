@@ -451,7 +451,7 @@
       are not stored in the file{app.connected ? "" : "; connect to read them live"}.
     </p>
   {:else}
-    <section class="panel multi" style:--route="var(--mta-grey)" data-pane use:rove>
+    <section class="panel multi" style:--route="var(--mta-grey)" data-pane use:rove={{ tab: "each" }}>
       <h3 class="sign">Multi</h3>
       <div class="cells">
         <div class="field">
@@ -578,7 +578,7 @@
               {@render programPicker(sel, part.program, true)}
             </div>
             {#each detail as d}
-              <section class="panel" style:--route="var(--mta-{d.route})" use:rove>
+              <section class="panel" style:--route="var(--mta-{d.route})" use:rove={{ tab: "each" }}>
                 <h3 class="sign">{d.title}</h3>
                 <div class="cells">
                   {#each d.ids as id}

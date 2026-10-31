@@ -51,7 +51,7 @@
         [`${mod},`, "Preferences"],
         [`${mod}+ / ${mod}− / ${mod}0`, "Bigger, smaller, actual size"],
         [`F6 / ${shift}F6, or ${mod}] / ${mod}[`, "Next / previous pane"],
-        ["Tab / " + shift + "Tab", "Next / previous panel or control group"],
+        ["Tab / " + shift + "Tab", "Next / previous control (the parts table and mixer: one stop each)"],
         [`${mod}${shift}?`, "This help"],
         [`${mod}W`, "Close the window"],
       ],
@@ -319,8 +319,10 @@
     <section id="keys">
       <h2>Keyboard</h2>
       <p>
-        Everything can be reached from the keyboard. Tab moves between panels; inside one, ← and → move between its
-        controls and ↑ and ↓ change the value. A ring shows where the keyboard is.
+        Everything can be reached from the keyboard. Tab visits each control in reading order, panel by panel (in
+        the program editor, the left pane, then the right); ← and → also move between a panel's controls, and ↑ and ↓
+        change the value. The multi editor's parts table and mixer, and the keygroup tabs, are one Tab stop each, with
+        ← and → inside. A solid ring shows where the keyboard is.
       </p>
       {#each keys as k}
         <h3>{k.group}</h3>

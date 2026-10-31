@@ -358,7 +358,7 @@
 {/snippet}
 
 {#snippet panel(p: Panel)}
-  <section class="panel" class:env={p.env} style:--route="var(--mta-{p.route})" use:rove>
+  <section class="panel" class:env={p.env} style:--route="var(--mta-{p.route})" use:rove={{ tab: "each" }}>
     <h3 class="sign">{p.title}</h3>
     {#if p.env}
       <EnvGraph kind={p.env} get={valueOf} {catalog} onchange={editable ? write : undefined} />
@@ -403,7 +403,7 @@
         <div class="flow">
           {#each programPanels as p}{@render panel(p)}{/each}
           {#if other.length}
-            <section class="panel other" style:--route="var(--mta-grey)" use:rove>
+            <section class="panel other" style:--route="var(--mta-grey)" use:rove={{ tab: "each" }}>
               <h3 class="sign">Other</h3>
               <div class="cells">
                 {#each other as p}
@@ -462,7 +462,7 @@
         </div>
         <div class="columns">
           {#each keygroupPanels as p}{@render panel(p)}{/each}
-          <section class="panel zone" style:--route="var(--mta-lime)" use:rove>
+          <section class="panel zone" style:--route="var(--mta-lime)" use:rove={{ tab: "each" }}>
             <h3 class="sign">Zone</h3>
             <div class="zone-tabs">
               {#each keygroup?.zones ?? [] as z, i}
