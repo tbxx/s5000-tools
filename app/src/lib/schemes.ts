@@ -10,8 +10,10 @@ export type SchemeId =
   | "contrast"
   | "corbusier"
   | "mies"
-  | "neon"
-  | "cyberpunk";
+  | "graphite"
+  | "pewter"
+  | "dusk"
+  | "wheat";
 
 export const SCHEMES: { id: SchemeId; name: string }[] = [
   { id: "system", name: "System" },
@@ -22,8 +24,10 @@ export const SCHEMES: { id: SchemeId; name: string }[] = [
   { id: "contrast", name: "High contrast" },
   { id: "corbusier", name: "Le Corbusier" },
   { id: "mies", name: "Mies" },
-  { id: "neon", name: "Neon 80s" },
-  { id: "cyberpunk", name: "Cyberpunk" },
+  { id: "graphite", name: "Graphite" },
+  { id: "pewter", name: "Pewter" },
+  { id: "dusk", name: "Dusk" },
+  { id: "wheat", name: "Wheat" },
 ];
 
 // Also kept in localStorage, so the scheme is right from the first frame,
@@ -32,6 +36,8 @@ const KEY = "s5k-scheme";
 
 export function applyScheme(id: SchemeId | undefined) {
   const root = document.documentElement;
+  // A scheme since removed (Neon 80s, Cyberpunk) falls back to System.
+  if (id && !SCHEMES.some((s) => s.id === id)) id = "system";
   if (!id || id === "system") delete root.dataset.theme;
   else root.dataset.theme = id;
   try {

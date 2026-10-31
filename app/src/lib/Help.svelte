@@ -304,8 +304,8 @@
         <dt>Colour scheme</dt>
         <dd>
           <b>System</b> follows your computer's light or dark setting. Light, Dark, Studio (warm charcoal and amber),
-          Ivory (warm paper), High contrast, and four with their own palettes: Le Corbusier, Mies, Neon 80s and
-          Cyberpunk.
+          Ivory (warm paper), High contrast, and six with their own palettes: Le Corbusier, Mies, Graphite and
+          Dusk (dark greys and violet greys, as in a music app at night), Pewter (mid grey) and Wheat (warm beige).
         </dd>
         <dt>Meters</dt>
         <dd>

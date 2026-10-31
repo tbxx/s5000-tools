@@ -8,8 +8,8 @@ decoration and no textures.
 
 Every token is a CSS custom property in `src/app.css`. Light is the default.
 Colour schemes (Preferences) are token sets under `[data-theme="…"]`: light,
-dark, studio, ivory, contrast, corbusier, mies, neon, cyberpunk. The last four
-also recolour the route colours. "System" sets no `data-theme` and follows
+dark, studio, ivory, contrast, corbusier, mies, graphite, pewter, dusk, wheat.
+The last six also recolour the route colours. "System" sets no `data-theme` and follows
 `prefers-color-scheme`. Any element can carry `data-theme`, which is how the
 Preferences tiles preview a scheme. Use the tokens; never hard-code colours in
 a component (meter faces and LEDs, which imitate hardware, are the exception).
@@ -29,7 +29,6 @@ a component (meter faces and LEDs, which imitate hardware, are the exception).
 | `--accent`, `--accent-text` | Active state and focus (MTA blue). |
 | `--select`, `--select-text`, `--select-soft` | Selected rows: focused, and unfocused (soft). |
 | `--ok`, `--bad`, `--warn` | Green, red and yellow for status. |
-| `--led` | A lit mode key's light (amber). |
 | `--route` | The current panel's route colour, read by knobs and graphs. Set it on a panel: `style:--route="var(--mta-green)"`. |
 | `--lcd-bg`, `--lcd-fg`, `--lcd-edge` | The sampler's screen. |
 | `--field-bg`, `--field-rule` | Inputs and selects. |
