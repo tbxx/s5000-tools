@@ -207,7 +207,7 @@
               <Fader info={info(`${P}level`)!} value={valueOf(i, `${P}level`)} label="Part {i + 1} level" onchange={on((v) => write(i, `${P}level`, v))} />
             {/if}
           </span>
-          <span class="r-read lcd-box">{valueOf(i, `${P}level`) ?? "—"}</span>
+          <span class="r-read"><span class="lcd-box">{valueOf(i, `${P}level`) ?? "—"}</span></span>
         </div>
       {/each}
       {#if !strips.length}<p class="muted none">No part has a program.</p>{/if}
@@ -283,6 +283,7 @@
     min-height: 0;
     display: flex;
     overflow-x: auto;
+    overflow-y: hidden;
     border-top: 1px solid var(--rule);
   }
   .labels,
@@ -472,7 +473,7 @@
   .tog:disabled {
     opacity: 1;
   }
-  .r-read {
+  .r-read .lcd-box {
     line-height: 16px;
   }
   .none {
