@@ -1,14 +1,14 @@
 // Windows besides the main one: the front panel, the meters, any number of
-// program and multi editors, and Help. Each is the same page with a
-// `#window=<kind>` hash (App.svelte). The main window opens and tracks them
-// all; the others ask it to with an "open-window" event. Which are open is
-// kept in the settings and reopened at startup.
+// program and multi editors, the keyboard, and Help. Each is the same page
+// with a `#window=<kind>` hash (App.svelte). The main window opens and tracks
+// them all; the others ask it to with an "open-window" event. Which are open
+// is kept in the settings and reopened at startup.
 
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { WebviewWindow, getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { app } from "./state.svelte";
 
-export type WindowKind = "panel" | "meters" | "program" | "multi" | "help";
+export type WindowKind = "panel" | "meters" | "program" | "multi" | "keyboard" | "help";
 
 const hash = new URLSearchParams(location.hash.slice(1));
 const kindHere = hash.get("window") as WindowKind | null;
@@ -27,6 +27,7 @@ const TITLES: Record<WindowKind, string> = {
   meters: "Meters",
   program: "Program",
   multi: "Multi",
+  keyboard: "Keyboard",
   help: "s5000-tools Help",
 };
 
@@ -35,6 +36,7 @@ const SIZES: Record<WindowKind, [number, number]> = {
   meters: [980, 520],
   program: [1100, 760],
   multi: [1180, 760],
+  keyboard: [1100, 340],
   help: [820, 700],
 };
 
@@ -59,8 +61,8 @@ class Windows {
    *  window other than the main one, asks the main window to. */
   async show(kind: WindowKind, item?: string, section?: string) {
     if (!isMain) return void emitTo("main", "open-window", { kind, item, section });
-    // One front panel, one meters and one Help window; one editor per item.
-    const single = kind === "panel" || kind === "meters" || kind === "help";
+    // One front panel, meters, keyboard and Help window; one editor per item.
+    const single = kind !== "program" && kind !== "multi";
     const existing = this.open.find((w) => w.kind === kind && (single || (item !== undefined && w.item === item)));
     if (existing) {
       const w = await WebviewWindow.getByLabel(existing.label);

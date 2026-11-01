@@ -103,6 +103,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
             "New multi window",
             Some("CmdOrCtrl+Shift+5"),
         )?)
+        .item(&item(app, "window.keyboard", "Keyboard", Some("CmdOrCtrl+K"))?)
         .separator()
         .item(&item(
             app,

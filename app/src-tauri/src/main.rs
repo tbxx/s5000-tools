@@ -7,6 +7,7 @@ mod commands;
 mod disk;
 mod drag_out;
 mod menu;
+mod midi;
 mod multi;
 mod params;
 mod samplers;
@@ -49,11 +50,19 @@ fn main() {
         .menu(menu::build)
         .on_menu_event(|app, event| menu::handle(app, event.id().as_ref()))
         // Closing the main window quits, closing the windows opened from it too.
+        // No note left sounding when the keyboard window closes or the app quits.
         .on_window_event(|window, event| {
-            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+            if !matches!(event, tauri::WindowEvent::Destroyed) {
+                return;
+            }
+            if window.label() == "main" || window.label() == "keyboard" {
+                window.app_handle().state::<midi::Midi>().release_all();
+            }
+            if window.label() == "main" {
                 window.app_handle().exit(0);
             }
         })
+        .manage(midi::Midi::default())
         .setup(|app| {
             let handle = app.handle().clone();
             app.manage(samplers::Samplers::new(move |id, event| {
@@ -106,6 +115,9 @@ fn main() {
             commands::read_multi_live,
             commands::write_multi_param,
             commands::set_part_program,
+            midi::midi_outputs,
+            midi::midi_send,
+            midi::midi_release_all,
         ])
         .run(tauri::generate_context!())
         .expect("error while running s5000-tools");

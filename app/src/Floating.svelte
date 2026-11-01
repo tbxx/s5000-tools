@@ -1,7 +1,7 @@
 <script lang="ts">
   // A window besides the main one: one view (front panel, meters, a program
-  // or multi editor, or Help), with the status line. The front panel and
-  // meters can go back into the main window.
+  // or multi editor, the keyboard, or Help), with the status line. The front
+  // panel and meters can go back into the main window.
   import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
   import { emitTo } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
@@ -9,6 +9,7 @@
   import FrontPanel from "./lib/FrontPanel.svelte";
   import Help from "./lib/Help.svelte";
   import Meters from "./lib/Meters.svelte";
+  import MidiKeyboard from "./lib/MidiKeyboard.svelte";
   import MultiEditor from "./lib/MultiEditor.svelte";
   import ProgramEditor from "./lib/ProgramEditor.svelte";
   import { initCommands, onKey } from "./lib/commands";
@@ -48,6 +49,8 @@
       <ProgramEditor initial={here.item} onitem={(n) => windows.showing(n)} />
     {:else if kind === "multi"}
       <MultiEditor initial={here.item} onitem={(n) => windows.showing(n)} />
+    {:else if kind === "keyboard"}
+      <MidiKeyboard />
     {:else}
       <Help section={here.section} />
     {/if}

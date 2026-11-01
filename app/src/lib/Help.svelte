@@ -18,6 +18,7 @@
     ["meters", "Meters"],
     ["program", "Program editor"],
     ["multi", "Multi editor"],
+    ["keyboard", "Keyboard window"],
     ["linking", "Linking controls"],
     ["windows", "Windows"],
     ["prefs", "Preferences"],
@@ -48,6 +49,7 @@
         [`${mod}1 … ${mod}5`, "Transfers, Front panel, Meters, Program, Multi"],
         [`${mod}${shift}2 … ${mod}${shift}5`, "Open the front panel, meters, a program or a multi in its own window"],
         [`${mod}${shift}1`, "Bring the main window forward"],
+        [`${mod}K`, "The keyboard window"],
         [`${mod},`, "Preferences"],
         [`${mod}+ / ${mod}− / ${mod}0`, "Bigger, smaller, actual size"],
         [`F6 / ${shift}F6, or ${mod}] / ${mod}[`, "Next / previous pane"],
@@ -81,6 +83,16 @@
         [`${mod}click / ${shift}click`, "Add to the selection / select a range: parts (multi), keygroup tabs (program)"],
         [`${mod}click a control`, "Link it: linked controls change together. Esc unlinks all"],
         [`${opt}← / ${opt}→`, "Program: previous / next zone. Mixer: the same control in the next strip"],
+      ],
+    },
+    {
+      group: "Keyboard window",
+      rows: [
+        ["A S D F G H J K L ; '", "White keys, from the octave underlined"],
+        ["W E T Y U O P", "Black keys"],
+        ["Z / X", "Octave down / up"],
+        ["C / V", "Velocity down / up"],
+        ["↑ / ↓ on a wheel", "Bend the pitch (springs back) or move the modulation wheel"],
       ],
     },
     {
@@ -251,6 +263,27 @@
       </ul>
     </section>
 
+    <section id="keyboard">
+      <h2>Keyboard window <kbd>{mod}K</kbd></h2>
+      <p>
+        Plays the sampler from the screen. The notes go out through a <b>MIDI output</b> on your computer, so you need
+        a MIDI interface cabled to the S5000's MIDI In (the USB connection carries no notes). Choose the output, and
+        the channel the sampler listens on: the multi's part channel, or the program's in Program mode.
+      </p>
+      <ul>
+        <li>Click a key, or drag across the keys. With <b>Velocity from where you click</b>, lower on the key plays louder, for trying velocity zones.</li>
+        <li>
+          The computer keyboard plays too: A to ' are the white keys of the octave underlined, W E T Y U O P the black
+          ones. Z and X move the octave, C and V the velocity.
+        </li>
+        <li><b>Pitch</b> springs back to the middle when let go; <b>Mod</b> stays where it is left. <b>Sustain</b> holds the pedal down.</li>
+        <li>
+          Notes stop when the window loses focus or closes. <b>All notes off</b> stops everything, lifts the pedal and
+          centres the pitch bend.
+        </li>
+      </ul>
+    </section>
+
     <section id="linking">
       <h2>Linking controls</h2>
       <p>
@@ -288,6 +321,7 @@
           from a tab takes its program or multi along, and the tab is free for the next. {opt}double-click a program or
           multi in the tree to open it in a window.
         </li>
+        <li>The <b>keyboard</b> ({mod}K) only has a window.</li>
         <li>Windows open when the app quits reopen next time, where they were.</li>
         <li>Closing the main window quits the app.</li>
       </ul>

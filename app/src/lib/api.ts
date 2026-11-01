@@ -199,6 +199,12 @@ export interface Settings {
   meterShowUpper?: boolean;
   /** The multi editor's view of the parts. */
   multiView?: "table" | "mixer" | "keys";
+  /** The keyboard window: the MIDI output it plays through, the channel
+   *  (0-15), the velocity, and whether the click's height sets the velocity. */
+  midiOutput?: string;
+  midiChannel?: number;
+  midiVelocity?: number;
+  midiVelocityByHeight?: boolean;
   /** Windows open besides the main one, reopened at startup. */
   windows?: { kind: import("./windows.svelte").WindowKind; item?: string }[];
 }
@@ -256,6 +262,9 @@ export const api = {
   /** `part` counts from 0; null for multi-level settings. */
   writeMultiParam: (multi: string, id: string, part: number | null, value: number) =>
     invoke<void>("write_multi_param", { multi, id, part, value }),
+  midiOutputs: () => invoke<string[]>("midi_outputs"),
+  midiSend: (port: string, msg: number[]) => invoke<void>("midi_send", { port, msg }),
+  midiReleaseAll: () => invoke<void>("midi_release_all"),
   setPartProgram: (multi: string, part: number, program: string) =>
     invoke<void>("set_part_program", { multi, part, program }),
 };

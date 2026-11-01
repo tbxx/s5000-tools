@@ -31,6 +31,7 @@ export function keyCommand(e: KeyboardEvent): string | null {
   if (e.key === "0") return "size.actual";
   if (e.key === ",") return "app.preferences";
   if (e.key === "?" || (e.shiftKey && e.code === "Slash")) return "help.guide";
+  if (e.code === "KeyK" && !e.shiftKey) return "window.keyboard";
   const digit = /^Digit([1-5])$/.exec(e.code)?.[1];
   if (!digit) return null;
   const n = Number(digit) - 1;
