@@ -283,7 +283,8 @@
           played</b> or <b>Random</b>, over one to four <b>Octaves</b>. <b>Rate</b> is the note value at the
           <b>Tempo</b> (1/8 T and 1/16 T are triplets); <b>Length</b> is how much of each step a note sounds.
           <b>Latch</b> keeps the chord playing after you let go, also with the window in the background; the next
-          chord replaces it.
+          chord replaces it. {mod}-click a key to add it to the arpeggio as it plays, or {mod}-click a note in it to
+          take it out; a note added this way stays until {mod}-clicked again or <b>All notes off</b>.
         </li>
         <li>
           Notes stop when the window loses focus or closes (a latched arpeggio plays on). <b>All notes off</b> stops

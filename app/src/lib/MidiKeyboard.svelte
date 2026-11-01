@@ -14,11 +14,13 @@
   // a tempo and note length. Latch keeps a chord going after the keys are let
   // go (and while the window is in the background); the next chord replaces
   // it. Its clock runs here, each step timed from the start so it does not
-  // drift.
+  // drift. ⌘-click (Ctrl-click) a key to add it to the arpeggio as it runs,
+  // or to take it out; it stays until ⌘-clicked again or All notes off.
   import { onDestroy, onMount } from "svelte";
   import { SvelteMap } from "svelte/reactivity";
   import { api, type Settings } from "./api";
   import { noteName } from "./format";
+  import { modKey, modLabel } from "./prefs.svelte";
   import { app } from "./state.svelte";
   import { here, windows } from "./windows.svelte";
 
@@ -138,10 +140,20 @@
 
   const stepMs = () => (60000 / arp.tempo) * (RATES.find(([r]) => r === arp.rate)?.[1] ?? 1 / 4);
 
+  /** Notes ⌘-clicked into the arpeggio: they stay until ⌘-clicked again. */
+  const pinned = new Set<number>();
+
   function arpAdd(note: number, vel: number) {
     // With latch, the first key after all were let go starts a new chord.
-    if (arp.latch && down.size === 1) chord = [];
+    if (arp.latch && down.size === 1) {
+      chord = [];
+      pinned.clear();
+    }
     if (!inChord.has(note)) chord = [...chord, { note, vel }];
+    arpStart();
+  }
+
+  function arpStart() {
     if (clock === undefined) {
       step = 0;
       nextAt = performance.now();
@@ -149,8 +161,21 @@
     }
   }
 
+  /** ⌘-click: adds a note to the arpeggio, or takes it out. */
+  function arpToggle(note: number, vel: number) {
+    if (inChord.has(note)) {
+      pinned.delete(note);
+      chord = chord.filter((c) => c.note !== note);
+      if (!chord.length) arpStop();
+    } else {
+      pinned.add(note);
+      chord = [...chord, { note, vel }];
+      arpStart();
+    }
+  }
+
   function arpRemove(note: number) {
-    if (arp.latch) return;
+    if (arp.latch || pinned.has(note)) return;
     chord = chord.filter((c) => c.note !== note);
     if (!chord.length) arpStop();
   }
@@ -207,6 +232,7 @@
   function silence() {
     arpStop();
     chord = [];
+    pinned.clear();
     down.clear();
     byPointer.clear();
     byKey.clear();
@@ -254,6 +280,7 @@
     } catch {
       // Still plays; dragging out of the window just won't follow.
     }
+    if (arp.on && modKey(e)) return arpToggle(...hit);
     byPointer.set(e.pointerId, hit[0]);
     press(...hit);
   }
@@ -366,7 +393,7 @@
   function pitchKeyUp(e: KeyboardEvent) {
     if (e.key === "ArrowUp" || e.key === "ArrowDown") bend(0);
   }
-  function modKey(e: KeyboardEvent) {
+  function modWheelKey(e: KeyboardEvent) {
     const by = e.shiftKey ? 16 : 1;
     const to: Record<string, number> = { ArrowUp: mod + by, ArrowDown: mod - by, Home: 0, End: 127 };
     if (e.key in to) {
@@ -379,7 +406,9 @@
   /** In the background a key's release may never arrive: let go of the keys.
    *  A latched arpeggio plays on. */
   function blur() {
-    if (!(arp.on && arp.latch && chord.length)) return silence();
+    if (!(arp.on && (arp.latch || pinned.size) && chord.length)) return silence();
+    // Without latch, only the ⌘-clicked notes play on.
+    if (!arp.latch) chord = chord.filter((c) => pinned.has(c.note));
     down.clear();
     byPointer.clear();
     byKey.clear();
@@ -521,7 +550,7 @@
           onpointermove={(e) => modWheel.move(e)}
           onpointerup={() => modWheel.up()}
           onpointercancel={() => modWheel.up()}
-          onkeydown={modKey}
+          onkeydown={modWheelKey}
         >
           <span class="fill" style:height="{(mod / 127) * 100}%"></span>
           <span class="thumb" style:bottom="{(mod / 127) * 100}%"></span>
@@ -577,7 +606,8 @@
 
   <p class="foot">
     Computer keys play from {noteName(base)}: A S D F G H J K L ; ' the white keys, W E T Y U O P the black ones.
-    Z X octave down and up, C V velocity down and up.
+    Z X octave down and up, C V velocity down and up.{#if arp.on}
+      {modLabel}-click a key to add it to the arpeggio or take it out.{/if}
   </p>
 </div>
 
