@@ -45,7 +45,8 @@ any virtual machine first.
 - **Keyboard (⌘K):** a window per sampler to play it: click or drag across
   the keys, or play the computer keyboard (A–' white keys, W E T Y U O P
   black, Z X octave, C V velocity); pitch and mod wheels, sustain, All notes
-  off. Notes go over USB as MIDI channel messages (`Sampler::midi`), queued
+  off, and an arpeggiator (mode, rate, tempo, octaves, length, latch) whose
+  clock runs in the window, each step timed from the start. Notes go over USB as MIDI channel messages (`Sampler::midi`), queued
   on the sampler's thread without waiting (`src-tauri/src/midi.rs`). The
   backend remembers each window's held notes and releases them when the
   window closes or switches sampler.

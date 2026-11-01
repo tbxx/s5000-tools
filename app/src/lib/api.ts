@@ -204,6 +204,15 @@ export interface Settings {
   midiChannel?: number;
   midiVelocity?: number;
   midiVelocityByHeight?: boolean;
+  /** The keyboard windows' arpeggiator: on, mode, rate ("1/16"…), tempo
+   *  (BPM), octaves, note length (% of a step) and latch. */
+  arpOn?: boolean;
+  arpMode?: "up" | "down" | "updown" | "played" | "random";
+  arpRate?: string;
+  arpTempo?: number;
+  arpOctaves?: number;
+  arpGate?: number;
+  arpLatch?: boolean;
   /** Windows open besides the main one, reopened at startup. */
   windows?: { kind: import("./windows.svelte").WindowKind; item?: string }[];
 }

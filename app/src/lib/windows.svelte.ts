@@ -36,7 +36,7 @@ const SIZES: Record<WindowKind, [number, number]> = {
   meters: [980, 520],
   program: [1100, 760],
   multi: [1180, 760],
-  keyboard: [1100, 340],
+  keyboard: [1100, 360],
   help: [820, 700],
 };
 

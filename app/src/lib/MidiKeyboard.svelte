@@ -8,9 +8,16 @@
   // plays too: A to ' are the white keys from the octave marked under the
   // keys, W E T Y U O P the black ones; Z and X change the octave, C and V
   // the velocity. Notes stop when the window loses focus or closes.
+  //
+  // The arpeggiator plays the held keys one at a time instead: up, down, up
+  // and down, in the order played or at random, over one to four octaves, at
+  // a tempo and note length. Latch keeps a chord going after the keys are let
+  // go (and while the window is in the background); the next chord replaces
+  // it. Its clock runs here, each step timed from the start so it does not
+  // drift.
   import { onDestroy, onMount } from "svelte";
   import { SvelteMap } from "svelte/reactivity";
-  import { api } from "./api";
+  import { api, type Settings } from "./api";
   import { noteName } from "./format";
   import { app } from "./state.svelte";
   import { here, windows } from "./windows.svelte";
@@ -68,11 +75,16 @@
     api.midiSend(target.id, msg).catch((e) => app.fail(e));
   }
 
+  const on = (note: number, vel: number) => send([0x90 | channel, note, Math.max(1, Math.min(127, vel))]);
+  const off = (note: number) => send([0x80 | channel, note, 64]);
+
   function press(note: number, vel = velocity) {
     if (note < 0 || note > 127) return;
     const n = down.get(note) ?? 0;
     down.set(note, n + 1);
-    if (n === 0) send([0x90 | channel, note, Math.max(1, Math.min(127, vel))]);
+    if (n > 0) return;
+    if (arp.on) arpAdd(note, vel);
+    else on(note, vel);
   }
 
   function lift(note: number | undefined) {
@@ -80,12 +92,121 @@
     const n = down.get(note) ?? 0;
     if (n <= 1) {
       down.delete(note);
-      if (n === 1) send([0x80 | channel, note, 64]);
+      if (n !== 1) return;
+      if (arp.on) arpRemove(note);
+      else off(note);
     } else down.set(note, n - 1);
+  }
+
+  // --- The arpeggiator ---------------------------------------------------------
+
+  type ArpMode = "up" | "down" | "updown" | "played" | "random";
+  const MODES: [ArpMode, string][] = [
+    ["up", "Up"],
+    ["down", "Down"],
+    ["updown", "Up and down"],
+    ["played", "As played"],
+    ["random", "Random"],
+  ];
+  /** Note lengths, in beats. */
+  const RATES: [string, number][] = [
+    ["1/4", 1],
+    ["1/8", 1 / 2],
+    ["1/8 T", 1 / 3],
+    ["1/16", 1 / 4],
+    ["1/16 T", 1 / 6],
+    ["1/32", 1 / 8],
+  ];
+  const arp = $derived({
+    on: app.settings.arpOn ?? false,
+    mode: (app.settings.arpMode ?? "up") as ArpMode,
+    rate: app.settings.arpRate ?? "1/16",
+    tempo: app.settings.arpTempo ?? 120,
+    octaves: app.settings.arpOctaves ?? 1,
+    gate: app.settings.arpGate ?? 50,
+    latch: app.settings.arpLatch ?? false,
+  });
+  /** The notes the arpeggiator plays, in the order pressed. */
+  let chord = $state<{ note: number; vel: number }[]>([]);
+  const inChord = $derived(new Set(chord.map((c) => c.note)));
+  /** The note it is sounding now. */
+  let sounding = $state<number | null>(null);
+  let step = 0;
+  let nextAt = 0;
+  let clock: ReturnType<typeof setTimeout> | undefined;
+  let gateTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const stepMs = () => (60000 / arp.tempo) * (RATES.find(([r]) => r === arp.rate)?.[1] ?? 1 / 4);
+
+  function arpAdd(note: number, vel: number) {
+    // With latch, the first key after all were let go starts a new chord.
+    if (arp.latch && down.size === 1) chord = [];
+    if (!inChord.has(note)) chord = [...chord, { note, vel }];
+    if (clock === undefined) {
+      step = 0;
+      nextAt = performance.now();
+      tick();
+    }
+  }
+
+  function arpRemove(note: number) {
+    if (arp.latch) return;
+    chord = chord.filter((c) => c.note !== note);
+    if (!chord.length) arpStop();
+  }
+
+  /** The notes in playing order. */
+  function sequence() {
+    const ordered = arp.mode === "played" ? chord : [...chord].sort((a, b) => a.note - b.note);
+    let seq = [];
+    for (let o = 0; o < arp.octaves; o++)
+      for (const c of ordered) if (c.note + 12 * o <= 127) seq.push({ note: c.note + 12 * o, vel: c.vel });
+    if (arp.mode === "down") seq.reverse();
+    if (arp.mode === "updown") seq = [...seq, ...seq.slice(1, -1).reverse()];
+    return seq;
+  }
+
+  function tick() {
+    const seq = sequence();
+    if (!seq.length) return arpStop();
+    const next = arp.mode === "random" ? seq[Math.floor(Math.random() * seq.length)] : seq[step % seq.length];
+    step++;
+    if (sounding !== null) off(sounding);
+    clearTimeout(gateTimer);
+    on(next.note, next.vel);
+    sounding = next.note;
+    const len = stepMs();
+    if (arp.gate < 100)
+      gateTimer = setTimeout(() => {
+        if (sounding === next.note) {
+          off(next.note);
+          sounding = null;
+        }
+      }, (len * arp.gate) / 100);
+    nextAt += len;
+    // After a stall (a sleeping laptop), carry on from now rather than catch up.
+    if (nextAt < performance.now() - len) nextAt = performance.now() + len;
+    clock = setTimeout(tick, Math.max(0, nextAt - performance.now()));
+  }
+
+  function arpStop() {
+    clearTimeout(clock);
+    clearTimeout(gateTimer);
+    clock = gateTimer = undefined;
+    if (sounding !== null) off(sounding);
+    sounding = null;
+  }
+
+  function setArp(patch: Partial<Settings>) {
+    // Switching it on or off, or latch off, starts afresh.
+    if ("arpOn" in patch || patch.arpLatch === false) silence();
+    app.save(patch);
   }
 
   /** Stops everything: every note, the pedal, the wheels back to rest. */
   function silence() {
+    arpStop();
+    chord = [];
     down.clear();
     byPointer.clear();
     byKey.clear();
@@ -255,13 +376,22 @@
     }
   }
 
+  /** In the background a key's release may never arrive: let go of the keys.
+   *  A latched arpeggio plays on. */
+  function blur() {
+    if (!(arp.on && arp.latch && chord.length)) return silence();
+    down.clear();
+    byPointer.clear();
+    byKey.clear();
+  }
+
   onMount(showBase);
   onDestroy(silence);
 
   const inRange = (n: number) => n >= base && n <= base + 17;
 </script>
 
-<svelte:window onkeydown={keyDown} onkeyup={keyUp} onblur={silence} />
+<svelte:window onkeydown={keyDown} onkeyup={keyUp} onblur={blur} />
 
 <div class="kbd">
   <div class="tools">
@@ -299,6 +429,53 @@
     </label>
     <span class="spacer"></span>
     <button onclick={silence} title="Note off for every note, pedal up, pitch bend back to the middle">All notes off</button>
+  </div>
+
+  <div class="tools arp" class:off={!arp.on}>
+    <label><input type="checkbox" checked={arp.on} onchange={(e) => setArp({ arpOn: e.currentTarget.checked })} /> Arpeggiator</label>
+    <label>
+      Mode
+      <select value={arp.mode} onchange={(e) => setArp({ arpMode: e.currentTarget.value as ArpMode })}>
+        {#each MODES as [id, name]}<option value={id}>{name}</option>{/each}
+      </select>
+    </label>
+    <label>
+      Rate
+      <select value={arp.rate} onchange={(e) => setArp({ arpRate: e.currentTarget.value })}>
+        {#each RATES as [r]}<option value={r}>{r}</option>{/each}
+      </select>
+    </label>
+    <label>
+      Tempo
+      <input
+        class="tempo"
+        type="number"
+        min="30"
+        max="300"
+        value={arp.tempo}
+        onchange={(e) => {
+          const v = Math.round(Number(e.currentTarget.value));
+          if (v >= 30 && v <= 300) setArp({ arpTempo: v });
+          else e.currentTarget.value = String(arp.tempo);
+        }}
+      />
+      BPM
+    </label>
+    <label>
+      Octaves
+      <select value={String(arp.octaves)} onchange={(e) => setArp({ arpOctaves: Number(e.currentTarget.value) })}>
+        {#each [1, 2, 3, 4] as o}<option value={String(o)}>{o}</option>{/each}
+      </select>
+    </label>
+    <label>
+      Length
+      <select value={String(arp.gate)} onchange={(e) => setArp({ arpGate: Number(e.currentTarget.value) })}>
+        {#each [10, 25, 50, 75, 90, 100] as g}<option value={String(g)}>{g}%</option>{/each}
+      </select>
+    </label>
+    <label title="Keep playing after the keys are let go; the next chord replaces it">
+      <input type="checkbox" checked={arp.latch} onchange={(e) => setArp({ arpLatch: e.currentTarget.checked })} /> Latch
+    </label>
   </div>
 
   {#if !target}
@@ -365,7 +542,13 @@
         onpointercancel={pointerUp}
       >
         {#each whites as n}
-          <div class="white" class:down={down.has(n)} data-note={n} title={noteName(n)}>
+          <div
+            class="white"
+            class:down={down.has(n) || (arp.on && inChord.has(n))}
+            class:playing={sounding === n}
+            data-note={n}
+            title={noteName(n)}
+          >
             {#if inRange(n)}<span class="letter">{LETTERS[n - base]}</span>{/if}
             {#if n % 12 === 0}<span class="name">{noteName(n)}</span>{/if}
           </div>
@@ -373,7 +556,8 @@
         {#each blacks as n}
           <div
             class="black"
-            class:down={down.has(n)}
+            class:down={down.has(n) || (arp.on && inChord.has(n))}
+            class:playing={sounding === n}
             data-note={n}
             title={noteName(n)}
             style:left="{blackLeft(n)}%"
@@ -398,7 +582,11 @@
 </div>
 
 <style>
+  /* Piano proportions: a white key six times as long as it is wide, black
+     keys 0.6 as wide and two-thirds as long. */
   .kbd {
+    --kw: 24px;
+    --kh: calc(var(--kw) * 6);
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -457,9 +645,8 @@
     color: var(--muted);
   }
   .play {
-    flex: 1;
-    min-height: 120px;
-    max-height: 260px;
+    flex: none;
+    height: calc(var(--kh) + 10px);
     display: flex;
     gap: 12px;
   }
@@ -521,8 +708,8 @@
   .keys {
     position: relative;
     display: flex;
-    height: 100%;
-    min-width: calc(var(--w) * 16px);
+    width: calc(var(--w) * var(--kw));
+    height: calc(var(--kh) + 8px);
     padding-bottom: 8px;
     box-sizing: border-box;
     touch-action: none;
@@ -531,11 +718,14 @@
   }
   .white {
     position: relative;
-    flex: 1 1 0;
-    background: #fff;
-    border: 1px solid #000;
+    flex: none;
+    width: var(--kw);
+    box-sizing: border-box;
+    background: linear-gradient(to bottom, #e9e9e9, #fff 12%, #fff 92%, #ececec);
+    border: 1px solid #333;
     border-left-width: 0;
-    border-radius: 0 0 3px 3px;
+    border-radius: 0 0 4px 4px;
+    box-shadow: inset 0 -4px 0 #d9d9d9;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -550,9 +740,12 @@
   .black {
     position: absolute;
     top: 0;
-    height: 60%;
-    background: #000;
-    border-radius: 0 0 2px 2px;
+    height: calc(var(--kh) * 0.64);
+    background: linear-gradient(to bottom, #000, #2b2b2b 85%, #3a3a3a);
+    border-radius: 0 0 3px 3px;
+    box-shadow:
+      inset 0 -6px 0 #111,
+      1px 2px 3px rgb(0 0 0 / 0.35);
     z-index: 1;
     display: flex;
     flex-direction: column;
@@ -563,11 +756,28 @@
     color: #fff;
     font-size: 9px;
   }
+  /* Pressed: lit, and the shading of the front edge gone, as if pushed down. */
   .white.down {
-    background: color-mix(in srgb, var(--accent) 60%, #fff);
+    background: color-mix(in srgb, var(--accent) 55%, #fff);
+    box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.25);
   }
   .black.down {
-    background: color-mix(in srgb, var(--accent) 70%, #000);
+    background: color-mix(in srgb, var(--accent) 65%, #000);
+    box-shadow: inset 0 -2px 0 #111;
+  }
+  .white.playing {
+    background: var(--accent);
+  }
+  .black.playing {
+    background: var(--accent);
+  }
+  .arp.off label:not(:first-child) {
+    opacity: 0.55;
+  }
+  .tempo {
+    width: 64px;
+    box-sizing: border-box;
+    font-variant-numeric: tabular-nums;
   }
   .letter {
     font-weight: 700;

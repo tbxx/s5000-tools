@@ -279,8 +279,15 @@
         </li>
         <li><b>Pitch</b> springs back to the middle when let go; <b>Mod</b> stays where it is left. <b>Sustain</b> holds the pedal down.</li>
         <li>
-          Notes stop when the window loses focus or closes. <b>All notes off</b> stops everything, lifts the pedal and
-          centres the pitch bend.
+          <b>Arpeggiator</b>: the keys you hold play one at a time, <b>Up</b>, <b>Down</b>, <b>Up and down</b>, <b>As
+          played</b> or <b>Random</b>, over one to four <b>Octaves</b>. <b>Rate</b> is the note value at the
+          <b>Tempo</b> (1/8 T and 1/16 T are triplets); <b>Length</b> is how much of each step a note sounds.
+          <b>Latch</b> keeps the chord playing after you let go, also with the window in the background; the next
+          chord replaces it.
+        </li>
+        <li>
+          Notes stop when the window loses focus or closes (a latched arpeggio plays on). <b>All notes off</b> stops
+          everything, the arpeggiator too, lifts the pedal and centres the pitch bend.
         </li>
       </ul>
     </section>
