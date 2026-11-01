@@ -1,7 +1,7 @@
 <script lang="ts">
-  // The keyboard window: play the sampler from the screen. Notes go out
-  // through a MIDI output on this computer (an interface cabled to the
-  // sampler's MIDI In); the sampler's USB link has no way to carry them.
+  // A keyboard window: play a sampler from the screen. Notes go to it over
+  // USB, as MIDI channel messages (midi.rs); each connected sampler can have
+  // a keyboard window of its own (the window's item is its short id).
   //
   // Click or drag across the keys (a glissando); with "Velocity from where
   // you click", the further down the key, the louder. The computer keyboard
@@ -13,6 +13,7 @@
   import { api } from "./api";
   import { noteName } from "./format";
   import { app } from "./state.svelte";
+  import { here, windows } from "./windows.svelte";
 
   // The keyboard, A-1 (21) to G8 (127), the sampler's key range.
   const LOW = 21;
@@ -33,8 +34,20 @@
   };
   const LETTERS = ["A", "W", "S", "E", "D", "F", "T", "G", "Y", "H", "U", "J", "K", "O", "L", "P", ";", "'"];
 
-  let ports = $state<string[] | null>(null);
-  const port = $derived(app.settings.midiOutput ?? "");
+  // The sampler this window plays: the one it was opened for, else the
+  // active one, which it then keeps.
+  const connected = $derived(app.samplers.filter((s) => s.status === "connected"));
+  let unit = $state<string | undefined>(here.item);
+  const target = $derived(
+    unit === undefined
+      ? app.active?.status === "connected"
+        ? app.active
+        : undefined
+      : connected.find((s) => s.short_id === unit),
+  );
+  $effect(() => {
+    if (unit === undefined && target) choose(target.short_id);
+  });
   const channel = $derived(app.settings.midiChannel ?? 0);
   const velocity = $derived(app.settings.midiVelocity ?? 100);
   const byHeight = $derived(app.settings.midiVelocityByHeight ?? false);
@@ -50,18 +63,9 @@
   const byPointer = new Map<number, number>();
   const byKey = new Map<string, number>();
 
-  async function refresh() {
-    try {
-      ports = await api.midiOutputs();
-    } catch (e) {
-      ports = [];
-      app.fail(e);
-    }
-  }
-
   function send(msg: number[]) {
-    if (!port) return;
-    api.midiSend(port, msg).catch((e) => app.fail(e));
+    if (!target) return;
+    api.midiSend(target.id, msg).catch((e) => app.fail(e));
   }
 
   function press(note: number, vel = velocity) {
@@ -92,9 +96,10 @@
     void api.midiReleaseAll().catch(() => {});
   }
 
-  function setPort(name: string) {
-    silence();
-    app.save({ midiOutput: name || undefined });
+  function choose(shortId: string) {
+    if (unit !== undefined) silence();
+    unit = shortId;
+    void windows.showing(shortId);
   }
 
   function setChannel(ch: number) {
@@ -250,26 +255,21 @@
     }
   }
 
-  onMount(() => {
-    void refresh();
-    showBase();
-  });
+  onMount(showBase);
   onDestroy(silence);
 
-  const missing = $derived(!!port && ports !== null && !ports.includes(port));
   const inRange = (n: number) => n >= base && n <= base + 17;
 </script>
 
-<svelte:window onkeydown={keyDown} onkeyup={keyUp} onblur={silence} onfocus={refresh} />
+<svelte:window onkeydown={keyDown} onkeyup={keyUp} onblur={silence} />
 
 <div class="kbd">
   <div class="tools">
     <label>
-      MIDI output
-      <select value={port} onchange={(e) => setPort(e.currentTarget.value)} onfocus={refresh}>
-        <option value="">{ports?.length === 0 ? "No MIDI outputs" : "Choose…"}</option>
-        {#each ports ?? [] as p}<option value={p}>{p}</option>{/each}
-        {#if missing}<option value={port}>{port} (not found)</option>{/if}
+      Sampler
+      <select value={unit ?? ""} onchange={(e) => choose(e.currentTarget.value)} disabled={!connected.length}>
+        {#if !target}<option value={unit ?? ""}>{unit ? `${unit} (not connected)` : "Not connected"}</option>{/if}
+        {#each connected as s}<option value={s.short_id}>{s.product} · {s.short_id}</option>{/each}
       </select>
     </label>
     <label>
@@ -295,21 +295,16 @@
       Velocity from where you click
     </label>
     <label>
-      <input type="checkbox" checked={sustain} onchange={toggleSustain} disabled={!port} /> Sustain
+      <input type="checkbox" checked={sustain} onchange={toggleSustain} disabled={!target} /> Sustain
     </label>
     <span class="spacer"></span>
     <button onclick={silence} title="Note off for every note, pedal up, pitch bend back to the middle">All notes off</button>
   </div>
 
-  {#if !port || missing}
+  {#if !target}
     <p class="hint">
-      {#if ports?.length === 0}
-        No MIDI outputs on this computer. Connect a MIDI interface whose output is cabled to the S5000's MIDI In.
-      {:else if missing}
-        “{port}” is not connected. Plug it in or choose another output.
-      {:else}
-        Choose the MIDI output cabled to the S5000's MIDI In. The keys light up without one, but nothing plays.
-      {/if}
+      {unit ? `${unit} is not connected.` : "No sampler is connected."} The keys light up, but nothing plays until one
+      is.
     </p>
   {/if}
 

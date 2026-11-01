@@ -1,39 +1,27 @@
-//! The keyboard window's MIDI output: a MIDI port on this computer, cabled to
-//! the sampler's MIDI In. (The sampler's USB link carries SysEx; Akai's spec
-//! has no way to play notes over it.)
+//! The keyboard windows' notes: MIDI channel messages played on a sampler
+//! over its USB connection (`Sampler::midi`), one keyboard window per sampler.
 //!
-//! The connection lives here rather than in the window, and remembers which
-//! notes are down, so that closing the window, switching ports or quitting
-//! never leaves a note hanging.
+//! The notes and pedals each window holds down are remembered here, so that
+//! closing the window, switching it to another sampler or quitting never
+//! leaves a note hanging.
 
-use std::collections::BTreeSet;
-use std::sync::Mutex;
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::{Arc, Mutex};
 
-use midir::{MidiOutput, MidiOutputConnection};
-use tauri::State;
+use tauri::{State, Webview};
 
-const CLIENT: &str = "s5000-tools";
+use crate::samplers::Samplers;
+use crate::worker::{CmdResult, Worker};
 
-struct Open {
-    port: String,
-    conn: MidiOutputConnection,
+#[derive(Default)]
+struct Held {
     /// (channel, note) of the notes sounding.
     notes: BTreeSet<(u8, u8)>,
     /// Channels with the sustain pedal down.
     sustain: BTreeSet<u8>,
 }
 
-impl Open {
-    /// Note off for every note down and pedal up on every held channel.
-    fn release_all(&mut self) {
-        for (ch, note) in std::mem::take(&mut self.notes) {
-            let _ = self.conn.send(&[0x80 | ch, note, 0]);
-        }
-        for ch in std::mem::take(&mut self.sustain) {
-            let _ = self.conn.send(&[0xB0 | ch, 64, 0]);
-        }
-    }
-
+impl Held {
     fn track(&mut self, msg: &[u8]) {
         let ch = msg[0] & 0x0F;
         match (msg[0] & 0xF0, msg.get(1), msg.get(2)) {
@@ -41,101 +29,128 @@ impl Open {
             (0x80 | 0x90, Some(&n), _) => drop(self.notes.remove(&(ch, n))),
             (0xB0, Some(64), Some(&v)) if v >= 64 => drop(self.sustain.insert(ch)),
             (0xB0, Some(64), _) => drop(self.sustain.remove(&ch)),
-            // All notes off / all sound off.
+            // All sound off / all notes off.
             (0xB0, Some(120 | 123), _) => self.notes.retain(|&(c, _)| c != ch),
             _ => {}
         }
     }
-}
 
-#[derive(Default)]
-pub struct Midi(Mutex<Option<Open>>);
-
-impl Midi {
-    /// Silences everything this app is holding down.
-    pub fn release_all(&self) {
-        if let Some(open) = self.0.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
-            open.release_all();
-        }
-    }
-}
-
-/// A channel voice message: status 80–EF and its one or two data bytes.
-/// Nothing else (no SysEx) goes out from here.
-fn check(msg: &[u8]) -> Result<(), String> {
-    let len = match msg.first() {
-        Some(0x80..=0xBF | 0xE0..=0xEF) => 3,
-        Some(0xC0..=0xDF) => 2,
-        _ => return Err("not a channel message".into()),
-    };
-    if msg.len() != len || msg[1..].iter().any(|&b| b > 0x7F) {
-        return Err("malformed MIDI message".into());
-    }
-    Ok(())
-}
-
-/// The names of this computer's MIDI outputs.
-#[tauri::command]
-pub fn midi_outputs() -> Result<Vec<String>, String> {
-    let out = MidiOutput::new(CLIENT).map_err(|e| e.to_string())?;
-    Ok(out.ports().iter().filter_map(|p| out.port_name(p).ok()).collect())
-}
-
-/// Sends one message to the output named `port`, opening it first if
-/// another port (or none) is open.
-#[tauri::command]
-pub fn midi_send(midi: State<'_, Midi>, port: String, msg: Vec<u8>) -> Result<(), String> {
-    check(&msg)?;
-    let mut slot = midi.0.lock().unwrap_or_else(|e| e.into_inner());
-    if slot.as_ref().is_none_or(|o| o.port != port) {
-        if let Some(mut old) = slot.take() {
-            old.release_all();
-        }
-        let out = MidiOutput::new(CLIENT).map_err(|e| e.to_string())?;
-        let found = out
-            .ports()
+    /// The messages that let go of everything held, which is then forgotten.
+    fn release(&mut self) -> Vec<Vec<u8>> {
+        let notes = std::mem::take(&mut self.notes);
+        let pedals = std::mem::take(&mut self.sustain);
+        notes
             .into_iter()
-            .find(|p| out.port_name(p).is_ok_and(|n| n == port))
-            .ok_or_else(|| format!("The MIDI output “{port}” is not there any more."))?;
-        let conn = out
-            .connect(&found, CLIENT)
-            .map_err(|e| format!("Cannot open the MIDI output “{port}”: {e}"))?;
-        *slot = Some(Open {
-            port: port.clone(),
-            conn,
-            notes: BTreeSet::new(),
-            sustain: BTreeSet::new(),
-        });
+            .map(|(ch, n)| vec![0x80 | ch, n, 64])
+            .chain(pedals.into_iter().map(|ch| vec![0xB0 | ch, 64, 0]))
+            .collect()
     }
-    let open = slot.as_mut().expect("opened above");
-    if let Err(e) = open.conn.send(&msg) {
-        // The port may have gone (an interface unplugged); open it afresh next time.
-        *slot = None;
-        return Err(format!("Cannot send to “{port}”: {e}"));
+}
+
+struct Played {
+    sampler: u32,
+    worker: Arc<Worker>,
+    held: Held,
+}
+
+impl Played {
+    fn release(&mut self) {
+        post(&self.worker, self.held.release());
     }
-    open.track(&msg);
+}
+
+/// Sends messages in order, after whatever the sampler's thread is doing.
+fn post(worker: &Worker, msgs: Vec<Vec<u8>>) {
+    if msgs.is_empty() {
+        return;
+    }
+    worker.post(move |session| {
+        if let Some(dev) = session.device.as_mut() {
+            for m in msgs {
+                let _ = dev.midi(&m);
+            }
+        }
+    });
+}
+
+/// What each keyboard window (by label) plays and holds.
+#[derive(Default)]
+pub struct Keyboards(Mutex<BTreeMap<String, Played>>);
+
+impl Keyboards {
+    fn lock(&self) -> std::sync::MutexGuard<'_, BTreeMap<String, Played>> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Lets go of everything the window `label` holds.
+    pub fn release(&self, label: &str) {
+        if let Some(mut p) = self.lock().remove(label) {
+            p.release();
+        }
+    }
+
+    /// Lets go of everything every window holds (quitting).
+    pub fn release_all(&self) {
+        for (_, mut p) in std::mem::take(&mut *self.lock()) {
+            p.release();
+        }
+    }
+}
+
+/// Plays one MIDI channel message on `sampler` from this keyboard window.
+/// It is queued, not awaited: the sampler does not answer notes, and queuing
+/// keeps note on and note off in order.
+#[tauri::command]
+pub fn midi_send(
+    webview: Webview,
+    keyboards: State<'_, Keyboards>,
+    samplers: State<'_, Samplers>,
+    sampler: u32,
+    msg: Vec<u8>,
+) -> CmdResult<()> {
+    if !s5k::is_channel_message(&msg) {
+        return Err("not a MIDI channel message".into());
+    }
+    let mut map = keyboards.lock();
+    let label = webview.label().to_string();
+    if map.get(&label).is_none_or(|p| p.sampler != sampler) {
+        if let Some(mut old) = map.remove(&label) {
+            old.release();
+        }
+        let worker = samplers.worker(Some(sampler))?;
+        map.insert(
+            label.clone(),
+            Played {
+                sampler,
+                worker,
+                held: Held::default(),
+            },
+        );
+    }
+    let played = map.get_mut(&label).expect("inserted above");
+    played.held.track(&msg);
+    post(&played.worker, vec![msg]);
     Ok(())
 }
 
-/// Note off for every note down (the keyboard's panic button, and when its
-/// window loses focus).
+/// Lets go of every note and pedal this window holds.
 #[tauri::command]
-pub fn midi_release_all(midi: State<'_, Midi>) {
-    midi.release_all();
+pub fn midi_release_all(webview: Webview, keyboards: State<'_, Keyboards>) {
+    keyboards.release(webview.label());
 }
 
 #[cfg(test)]
 mod tests {
-    use super::check;
+    use super::Held;
 
     #[test]
-    fn only_channel_messages() {
-        assert!(check(&[0x90, 60, 100]).is_ok());
-        assert!(check(&[0xC3, 5]).is_ok());
-        assert!(check(&[0xE0, 0, 64]).is_ok());
-        assert!(check(&[0xF0, 0x47, 0x5E, 0xF7]).is_err());
-        assert!(check(&[0x90, 60]).is_err());
-        assert!(check(&[0x90, 60, 128]).is_err());
-        assert!(check(&[]).is_err());
+    fn remembers_what_is_held() {
+        let mut h = Held::default();
+        h.track(&[0x90, 60, 100]);
+        h.track(&[0x91, 64, 100]);
+        h.track(&[0x90, 60, 0]);
+        h.track(&[0xB1, 64, 127]);
+        assert_eq!(h.release(), vec![vec![0x81, 64, 64], vec![0xB1, 64, 0]]);
+        assert!(h.release().is_empty());
     }
 }

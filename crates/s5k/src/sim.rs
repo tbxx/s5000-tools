@@ -545,6 +545,11 @@ impl Transport for Simulator {
     fn write(&mut self, packet: &[u8]) -> io::Result<()> {
         let in_upload_data = matches!(&self.mode, Mode::Upload { want, got, .. } if got < want);
         if packet.first() == Some(&sysex::WRAP) && packet.len() >= 3 && !in_upload_data {
+            // A wrapped MIDI channel message (a note from the keyboard): the
+            // simulator makes no sound.
+            if self.pending.is_empty() && packet.get(3).is_some_and(|&b| b != 0xF0) {
+                return Ok(());
+            }
             self.pending.extend_from_slice(&packet[3..]);
             if self.pending.last() == Some(&0xF7) {
                 let bytes = std::mem::take(&mut self.pending);

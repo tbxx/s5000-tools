@@ -28,6 +28,7 @@ pub use s5k_protocol::panel::{Key, Screen};
 pub mod panel_size {
     pub use s5k_protocol::panel::{HEIGHT, WIDTH};
 }
+pub use s5k_protocol::sysex::is_channel_message;
 pub use s5k_protocol::{ItemKind, Transport};
 pub use sampler::{Heartbeat, MemoryList, MultiInfo, ProgramInfo, SampleInfo, Sampler, SamplerInfo};
 pub use sim::Simulator;

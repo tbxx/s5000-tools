@@ -12,6 +12,26 @@ pub const WRAP: u8 = 0x10;
 /// Largest SysEx piece carried by one USB write.
 pub const MAX_PIECE: usize = 61;
 
+/// Whether `msg` is one MIDI channel voice message (note on/off, aftertouch,
+/// controller, program change, pitch bend): status 80–EF and its data bytes.
+pub fn is_channel_message(msg: &[u8]) -> bool {
+    let len = match msg.first() {
+        Some(0x80..=0xBF | 0xE0..=0xEF) => 3,
+        Some(0xC0..=0xDF) => 2,
+        _ => return false,
+    };
+    msg.len() == len && msg[1..].iter().all(|&b| b < 0x80)
+}
+
+/// The USB write that plays a MIDI channel message on the sampler: the
+/// message in the same `10 <len lo> <len hi>` wrapper as SysEx. The sampler
+/// acts on it as on its MIDI In and sends nothing back (docs/protocol.md §2).
+pub fn midi_packet(msg: &[u8]) -> Vec<u8> {
+    let mut packet = vec![WRAP, msg.len() as u8, (msg.len() >> 8) as u8];
+    packet.extend_from_slice(msg);
+    packet
+}
+
 /// The 4-byte "AkaI" reply that means the sampler is busy.
 pub const BUSY: [u8; 4] = *b"AkaI";
 
@@ -297,6 +317,18 @@ impl Assembler {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn midi_over_usb() {
+        assert_eq!(midi_packet(&[0x90, 60, 100]), [0x10, 3, 0, 0x90, 60, 100]);
+        assert!(is_channel_message(&[0x90, 60, 100]));
+        assert!(is_channel_message(&[0xC3, 5]));
+        assert!(is_channel_message(&[0xE0, 0, 64]));
+        assert!(!is_channel_message(&[0xF0, 0x47, 0x5E, 0xF7]));
+        assert!(!is_channel_message(&[0x90, 60]));
+        assert!(!is_channel_message(&[0x90, 60, 128]));
+        assert!(!is_channel_message(&[]));
+    }
 
     #[test]
     fn frames_a_short_command() {

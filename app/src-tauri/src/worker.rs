@@ -75,6 +75,12 @@ impl Worker {
             .map_err(|_| "the sampler thread has stopped".to_string())?
     }
 
+    /// Queues `f` without waiting for it: jobs run in the order queued, so
+    /// notes posted one after another reach the sampler in order.
+    pub fn post(&self, f: impl FnOnce(&mut Session) + Send + 'static) {
+        let _ = self.jobs.send(Box::new(f));
+    }
+
     /// Runs `f` with the connected sampler, or fails if there is none.
     pub async fn with<R: Send + 'static>(
         &self,

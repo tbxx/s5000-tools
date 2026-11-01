@@ -49,7 +49,7 @@
         [`${mod}1 … ${mod}5`, "Transfers, Front panel, Meters, Program, Multi"],
         [`${mod}${shift}2 … ${mod}${shift}5`, "Open the front panel, meters, a program or a multi in its own window"],
         [`${mod}${shift}1`, "Bring the main window forward"],
-        [`${mod}K`, "The keyboard window"],
+        [`${mod}K`, "A keyboard window for the active sampler"],
         [`${mod},`, "Preferences"],
         [`${mod}+ / ${mod}− / ${mod}0`, "Bigger, smaller, actual size"],
         [`F6 / ${shift}F6, or ${mod}] / ${mod}[`, "Next / previous pane"],
@@ -266,9 +266,10 @@
     <section id="keyboard">
       <h2>Keyboard window <kbd>{mod}K</kbd></h2>
       <p>
-        Plays the sampler from the screen. The notes go out through a <b>MIDI output</b> on your computer, so you need
-        a MIDI interface cabled to the S5000's MIDI In (the USB connection carries no notes). Choose the output, and
-        the channel the sampler listens on: the multi's part channel, or the program's in Program mode.
+        Plays a sampler from the screen, over its USB connection: no MIDI cable needed. {mod}K opens a keyboard for
+        the active sampler; with several samplers connected, each can have a keyboard window of its own (the
+        <b>Sampler</b> menu switches a window to another). Choose the channel the sampler listens on: the multi's part
+        channel, or the program's in Program mode.
       </p>
       <ul>
         <li>Click a key, or drag across the keys. With <b>Velocity from where you click</b>, lower on the key plays louder, for trying velocity zones.</li>
@@ -321,7 +322,7 @@
           from a tab takes its program or multi along, and the tab is free for the next. {opt}double-click a program or
           multi in the tree to open it in a window.
         </li>
-        <li>The <b>keyboard</b> ({mod}K) only has a window.</li>
+        <li>The <b>keyboard</b> ({mod}K) only has a window: one per sampler.</li>
         <li>Windows open when the app quits reopen next time, where they were.</li>
         <li>Closing the main window quits the app.</li>
       </ul>

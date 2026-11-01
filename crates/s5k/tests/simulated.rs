@@ -177,3 +177,12 @@ fn simulated_disk() {
     );
     assert!(s.delete_folder("DRUMS").is_err()); // not in this folder
 }
+
+#[test]
+fn midi_notes_leave_commands_working() {
+    let mut s = connect();
+    s.midi(&[0x90, 60, 100]).unwrap();
+    s.midi(&[0x80, 60, 64]).unwrap();
+    assert!(s.midi(&[0xF0, 0x47, 0xF7]).is_err());
+    assert!(!s.program_names().unwrap().is_empty());
+}

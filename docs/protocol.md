@@ -76,6 +76,13 @@ Most commands are System Exclusive messages wrapped in a 3-byte header:
   SysEx after its own `10 <len16>` header. A message is cut into consecutive
   pieces; only the first starts with `F0` and only the last ends with `F7`.
 
+**MIDI over USB.** The wrapper also carries ordinary MIDI channel messages
+(note on/off, controllers, program change, pitch bend): `10 03 00 90 3C 64`
+plays middle C on channel 1, as if it came in at MIDI In. The sampler sends
+nothing back. Several messages can share one write (`10 06 00 90 40 64 90 43
+64`). Not in Akai's spec and not used by ak.Sys; verified on an S5000 (OS
+2.14), 2026-10-31, on channels 1 and 6 in Program mode.
+
 A few commands are raw bytes, sent without the SysEx wrapper: `01` (screen),
 `30` (keep-alive), `50` (meters), and the transfer commands `20`–`29` / `40`–`41`.
 

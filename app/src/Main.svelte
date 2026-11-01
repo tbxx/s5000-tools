@@ -78,7 +78,8 @@
         else openMulti = undefined;
         epoch[kind]++;
       }
-    } else await windows.show(kind);
+    } else if (kind === "keyboard") await windows.show(kind, app.active?.short_id);
+    else await windows.show(kind);
   }
 
   /** Menu commands (and their shortcuts) for the main window. */

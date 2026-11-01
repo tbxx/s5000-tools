@@ -55,14 +55,17 @@ fn main() {
             if !matches!(event, tauri::WindowEvent::Destroyed) {
                 return;
             }
-            if window.label() == "main" || window.label() == "keyboard" {
-                window.app_handle().state::<midi::Midi>().release_all();
+            let keyboards = window.app_handle().state::<midi::Keyboards>();
+            if window.label() == "main" {
+                keyboards.release_all();
+            } else {
+                keyboards.release(window.label());
             }
             if window.label() == "main" {
                 window.app_handle().exit(0);
             }
         })
-        .manage(midi::Midi::default())
+        .manage(midi::Keyboards::default())
         .setup(|app| {
             let handle = app.handle().clone();
             app.manage(samplers::Samplers::new(move |id, event| {
@@ -115,7 +118,6 @@ fn main() {
             commands::read_multi_live,
             commands::write_multi_param,
             commands::set_part_program,
-            midi::midi_outputs,
             midi::midi_send,
             midi::midi_release_all,
         ])

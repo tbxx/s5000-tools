@@ -1,5 +1,5 @@
 // Windows besides the main one: the front panel, the meters, any number of
-// program and multi editors, the keyboard, and Help. Each is the same page
+// program and multi editors, a keyboard per sampler, and Help. Each is the same page
 // with a `#window=<kind>` hash (App.svelte). The main window opens and tracks
 // them all; the others ask it to with an "open-window" event. Which are open
 // is kept in the settings and reopened at startup.
@@ -61,8 +61,9 @@ class Windows {
    *  window other than the main one, asks the main window to. */
   async show(kind: WindowKind, item?: string, section?: string) {
     if (!isMain) return void emitTo("main", "open-window", { kind, item, section });
-    // One front panel, meters, keyboard and Help window; one editor per item.
-    const single = kind !== "program" && kind !== "multi";
+    // One front panel, meters and Help window; one editor per item, one
+    // keyboard per sampler.
+    const single = kind === "panel" || kind === "meters" || kind === "help";
     const existing = this.open.find((w) => w.kind === kind && (single || (item !== undefined && w.item === item)));
     if (existing) {
       const w = await WebviewWindow.getByLabel(existing.label);

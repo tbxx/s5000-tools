@@ -42,12 +42,13 @@ any virtual machine first.
   console, and Ivory, Amber and Black VU (`src/lib/meters/`). VU needles have
   VU ballistics; LED meters peak hold. The style, peak hold and the 0 VU
   reference are remembered.
-- **Keyboard (⌘K):** a window to play the sampler: click or drag across the
-  keys, or play the computer keyboard (A–' white keys, W E T Y U O P black,
-  Z X octave, C V velocity); pitch and mod wheels, sustain, All notes off.
-  Notes go out through a MIDI output on the computer (`src-tauri/src/midi.rs`,
-  midir), cabled to the sampler's MIDI In; the USB link carries no notes.
-  The backend remembers held notes and releases them when the window closes.
+- **Keyboard (⌘K):** a window per sampler to play it: click or drag across
+  the keys, or play the computer keyboard (A–' white keys, W E T Y U O P
+  black, Z X octave, C V velocity); pitch and mod wheels, sustain, All notes
+  off. Notes go over USB as MIDI channel messages (`Sampler::midi`), queued
+  on the sampler's thread without waiting (`src-tauri/src/midi.rs`). The
+  backend remembers each window's held notes and releases them when the
+  window closes or switches sampler.
 - **Linking:** ⌘-click knobs, faders, numbers, switches or menus to link
   them (dashed outline); changing one changes the others of its kind:
   numbers by the same amount, switches and menus to the same setting. Esc

@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use s5k_protocol::encode::{self, read_strings, read_u14, read_u28};
 use s5k_protocol::meters::Meters;
 use s5k_protocol::panel::{self, Key, SCREEN_BYTES, Screen};
-use s5k_protocol::sysex::section;
+use s5k_protocol::sysex::{self, section};
 use s5k_protocol::transport::{HANDSHAKE, KEEP_ALIVE, MAX_TRANSFER, PACKET};
 use s5k_protocol::{Assembler, Download, ItemKind, Message, Reply, Status, Step, Transport, Upload};
 
@@ -525,6 +525,16 @@ impl<T: Transport> Sampler<T> {
     pub fn tap(&mut self, key: Key) -> Result<()> {
         self.press(key)?;
         self.release(key)
+    }
+
+    /// Plays a MIDI channel message (note on/off, controller, program change,
+    /// pitch bend…) as if it came in at the sampler's MIDI In. Nothing comes
+    /// back. Anything other than a channel message is refused.
+    pub fn midi(&mut self, msg: &[u8]) -> Result<()> {
+        if !sysex::is_channel_message(msg) {
+            return Err(Error::Protocol("not a MIDI channel message".into()));
+        }
+        self.write_raw(&sysex::midi_packet(msg))
     }
 
     pub fn wheel(&mut self, clicks: i8) -> Result<()> {

@@ -29,8 +29,8 @@ replace Akai's Windows-only ak.Sys on macOS, Linux and Windows.
   - **Program editor:** live, including draggable envelopes.
   - **Multi editor:** the parts table (program, MIDI channel, level, pan,
     output, mute/solo, FX, tuning, key range), live.
-  - **Keyboard:** play the sampler from the screen or the computer keyboard,
-    with pitch and mod wheels, through a MIDI interface cabled to its MIDI In.
+  - **Keyboard:** play each sampler from the screen or the computer keyboard,
+    with pitch and mod wheels, over USB (no MIDI cable needed).
 - **Meters** in nine styles: LED and plasma bargraphs and moving-coil VUs,
   modelled on classic studio consoles.
 - **Windows**: any view can open in a window of its own, as in ak.Sys:
