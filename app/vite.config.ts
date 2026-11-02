@@ -10,5 +10,7 @@ export default defineConfig({
     strictPort: true,
     watch: { ignored: ["**/src-tauri/**"] },
   },
-  build: { target: "safari16" },
+  // macOS's own WebKit runs the app: Safari 13 is what Catalina (10.15)
+  // shipped with, and it can't be updated past 15.6. Newer syntax is lowered.
+  build: { target: "safari13" },
 });
