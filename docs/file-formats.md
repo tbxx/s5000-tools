@@ -122,7 +122,7 @@ The aux envelope has four rates and four levels; their exact offsets within
 | +3 | resonance |
 | +4 | keyboard tracking; signed |
 | +5, +6, +7 | mod amounts 1–3; signed |
-| +9 | **keygroup level**, 0–10 in 6 dB steps, 5 = 0 dB (saved programs hold 5; a program written with 0 read back −30 dB and was barely audible, with 5 it read back 0 dB; S5000 OS 2.14, 2026-11-07). Earlier notes called this filter attenuation; where that is stored in the file is not known |
+| +9 | **keygroup level**, 0–10 in 6 dB steps, 5 = 0 dB (saved programs hold 5; a program written with 0 read back −30 dB and was barely audible, with 5 it read back 0 dB; S5000 OS 2.14, 2026-11-07). Earlier notes called this filter attenuation; where that is stored in the file is not known. OS 1 files (version byte 1) hold 0 here throughout, so it is not keygroup level there |
 
 ### `zone` (four per keygroup)
 

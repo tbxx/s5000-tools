@@ -99,7 +99,9 @@ pub const FILT: &[Field] = &[
     f("mod_1", 5, I8),
     f("mod_2", 6, I8),
     f("mod_3", 7, I8),
-    f("attenuation", 9, U8),
+    // Keygroup level, 0-10 in 6 dB steps (5 = 0 dB); checked on an S5000, OS 2.14. Where
+    // filter attenuation is stored in the file is not known.
+    f("level", 9, U8),
 ];
 
 pub const ZONE: &[Field] = &[

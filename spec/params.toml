@@ -668,7 +668,8 @@ min = 0
 max = 10
 units = "dB"
 source = "both"
-notes = "Spec: 0-10 in 6 dB steps (5 = 0 dB), confirmed 2026-11-07. In .akp files it is filt +9, which keygroup.filter_attenuation's file mapping currently claims; see discrepancies.md."
+file = { format = "akp", section = "Filter", field = "level" }
+notes = "Spec: 0-10 in 6 dB steps (5 = 0 dB), confirmed 2026-11-07. In .akp files it is filt +9 (OS 2 files; OS 1 files hold 0 there), which earlier notes called filter attenuation; see discrepancies.md."
 
 [[param]]
 id = "keygroup.pitch_mod_amount"
@@ -776,7 +777,6 @@ encoding = "enum"
 list = "filter_attenuation"
 min = 0
 max = 5
-file = { format = "akp", section = "Filter", field = "attenuation" }
 source = "both"
 
 [[param]]
