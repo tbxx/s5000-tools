@@ -91,7 +91,7 @@ presumably its amount.
 | +6, +7 | semitone, fine; signed |
 | +8 | FX override (0 off, 1 FX1, 2 FX2, 3 RV3, 4 RV4) |
 | +9 | FX send |
-| +10, +11, +12 | keygroup pitch/amp mod amounts; signed |
+| +10, +11, +12 | keygroup pitch/amp mod amounts; signed. Pitch mod 1 is routed from KBD in saved programs, so a nonzero +10 adds keyboard tracking on top of the zones' own (100 played octaves about 15 semitones apart; seen 2026-11-07) |
 | +13 | velocity crossfade |
 | +14 | mute group |
 
@@ -122,19 +122,21 @@ The aux envelope has four rates and four levels; their exact offsets within
 | +3 | resonance |
 | +4 | keyboard tracking; signed |
 | +5, +6, +7 | mod amounts 1–3; signed |
-| +9 | attenuation (0–5 = 0–30 dB in 6 dB steps) |
+| +9 | **keygroup level**, 0–10 in 6 dB steps, 5 = 0 dB (saved programs hold 5; a program written with 0 read back −30 dB and was barely audible, with 5 it read back 0 dB; S5000 OS 2.14, 2026-11-07). Earlier notes called this filter attenuation; where that is stored in the file is not known |
 
 ### `zone` (four per keygroup)
 
 | Offset | Field |
 |---|---|
+| +0 | always 3; with 0 the sampler loads the zone but resets its playback mode to AS SAMPLE |
 | +1 | sample name length (0 = empty zone) |
 | +2… | sample name; bytes after the length are junk |
 | +36 | fine; signed |
 | +37 | semitone; signed |
 | +38 | filter; signed |
 | +39 | pan; signed (−50…+50) |
-| +40 | playback mode |
+| +34, +35 | low and high velocity |
+| +40 | playback mode: 0 NO LOOP, 1 ONE SHOT, 2 LP IN REL, 3 LP TL REL, 6 AS SAMPLE (each set over SysEx and read off the ZONES page; the file holds the same value; 4 and 5 not checked) |
 | +41 | output |
 | +42 | level; signed |
 | +43 | keyboard tracking |

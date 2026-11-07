@@ -474,7 +474,7 @@ min = 0
 max = 6
 file = { format = "akp", section = "Zone", field = "playback" }
 source = "both"
-notes = "Observed: 0 = as sample. The spec's order (0 no looping ... 6 as sample) conflicts with that, so the value names are left unassigned; see discrepancies.md."
+notes = "0 NO LOOP, 1 ONE SHOT, 2 LP IN REL, 3 LP TL REL, 6 AS SAMPLE: the spec's order, read off the ZONES page 2026-11-07 (4 and 5 not checked). The earlier '0 = as sample' is explained in discrepancies.md."
 
 [[param]]
 id = "zone.velocity_start"
@@ -668,7 +668,7 @@ min = 0
 max = 10
 units = "dB"
 source = "both"
-notes = "Spec: 0-10 in 6 dB steps (5 = 0 dB). The docs tentatively describe item 12 as signed -30..+30 dB; unverified. See discrepancies.md."
+notes = "Spec: 0-10 in 6 dB steps (5 = 0 dB), confirmed 2026-11-07. In .akp files it is filt +9, which keygroup.filter_attenuation's file mapping currently claims; see discrepancies.md."
 
 [[param]]
 id = "keygroup.pitch_mod_amount"
