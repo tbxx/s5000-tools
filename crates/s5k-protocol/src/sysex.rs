@@ -124,6 +124,18 @@ impl Message {
         }
     }
 
+    /// The item number of the command, wherever the section puts it: after
+    /// the index in `2A`–`32`, after the index (and keygroup) in the blocked
+    /// sections. For error messages.
+    pub fn command_item(&self) -> u8 {
+        let at = match self.section {
+            0x2A | 0x2C | 0x2E | 0x32 | 0x3C | 0x3E => 1,
+            0x38 | 0x3A => 2,
+            _ => return self.item,
+        };
+        self.data.get(at).copied().unwrap_or(0)
+    }
+
     pub fn checksum(&self) -> u8 {
         let sum = self
             .data
@@ -367,10 +379,12 @@ mod tests {
         assert_eq!(m.sysex()[6..], [0x2E, 0x00, 0x00, 0x34, 0xF7]);
         assert_eq!(m.sysex_with_checksum()[6..], [0x2E, 0x00, 0x00, 0x34, 0x62, 0xF7]);
         assert_eq!(m.reply_item(), 0x34);
+        assert_eq!(m.command_item(), 0x34);
         // Keygroup set on program 1, keygroup 1: 3A 00 01 01 05 3D 00 00; reply echoes the keygroup.
         let m = Message::block(section::KEYGROUP_BLOCK, 1, Some(1), &[(0x05, [0x3D, 0, 0])]);
         assert_eq!(m.sysex()[6..14], [0x3A, 0x00, 0x01, 0x01, 0x05, 0x3D, 0x00, 0x00]);
         assert_eq!(m.reply_item(), 0x01);
+        assert_eq!(m.command_item(), 0x05);
         // Program block read: reply echoes the first item.
         let m = Message::block(section::PROGRAM_BLOCK, 2, None, &[(0x28, [0; 3]), (0x29, [0; 3])]);
         assert_eq!(m.reply_item(), 0x28);

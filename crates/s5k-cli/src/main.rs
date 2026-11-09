@@ -90,6 +90,20 @@ enum Command {
     Play { name: String },
     /// Stop playing a sample.
     Stop { name: String },
+    /// Show one item in detail: a sample's loop and tuning, a program's
+    /// keygroups and number, a multi's assigned parts.
+    Show { kind: Kind, name: String },
+    /// Add keygroups to a program, or delete one.
+    Keygroup {
+        #[command(subcommand)]
+        action: KeygroupAction,
+    },
+    /// Remove the program from multi parts (parts count from 0).
+    ClearPart { multi: String, parts: Vec<u8> },
+    /// Check the sampler answers, and that bytes come back unchanged.
+    Ping,
+    /// List the sampler's disks.
+    Disks,
     /// Show level meters once.
     Meters,
     /// List, read or change parameters (see spec/params.toml).
@@ -109,6 +123,19 @@ enum Command {
     Press { keys: Vec<String> },
     /// Delete everything in memory.
     Clear {
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum KeygroupAction {
+    /// Add COUNT keygroups at the end of a program.
+    Add { program: String, count: u8 },
+    /// Delete keygroup KEYGROUP (from 1) of a program.
+    Delete {
+        program: String,
+        keygroup: u8,
         #[arg(short = 'y', long)]
         yes: bool,
     },
@@ -166,7 +193,7 @@ fn names_of(s: &mut Sampler<UsbTransport>, kind: ItemKind) -> Res<Vec<String>> {
         ItemKind::Sample => s.sample_names()?,
         ItemKind::Program => s.program_names()?,
         ItemKind::Multi => s.multi_names()?,
-        ItemKind::MidiFile => Vec::new(),
+        ItemKind::MidiFile => s.midi_file_names()?,
     })
 }
 
@@ -236,7 +263,8 @@ fn run(command: Command) -> Res<()> {
             );
         }
         Command::List => {
-            let m = connect()?.memory()?;
+            let mut s = connect()?;
+            let m = s.memory()?;
             println!("Samples ({})", m.samples.len());
             for s in &m.samples {
                 let secs = s.frames as f64 / s.sample_rate.max(1) as f64;
@@ -253,6 +281,18 @@ fn run(command: Command) -> Res<()> {
             println!("Multis ({})", m.multis.len());
             for x in &m.multis {
                 println!("  {:3}  {:<20} {} parts", x.index, x.name, x.parts);
+            }
+            for (title, names) in [
+                ("MIDI files", s.midi_file_names()?),
+                ("Set lists", s.setlist_names()?),
+                ("Scenelists", s.scenelist_names()?),
+            ] {
+                if !names.is_empty() {
+                    println!("{title} ({})", names.len());
+                    for (i, n) in names.iter().enumerate() {
+                        println!("  {i:3}  {n}");
+                    }
+                }
             }
         }
         Command::Get {
@@ -361,6 +401,39 @@ fn run(command: Command) -> Res<()> {
         }
         Command::Play { name } => audition(&name, true)?,
         Command::Stop { name } => audition(&name, false)?,
+        Command::Show { kind, name } => show(kind, &name)?,
+        Command::Keygroup { action } => keygroup(action)?,
+        Command::ClearPart { multi, parts } => {
+            let mut s = connect()?;
+            let all = s.multi_names()?;
+            let (index, name) = resolve(&all, &[multi])?.remove(0);
+            for part in parts {
+                s.clear_part(index, part)?;
+                println!("{name}: part {} cleared", part + 1);
+            }
+        }
+        Command::Ping => {
+            let mut s = connect()?;
+            s.ping()?;
+            let sent = [0x01, 0x2A, 0x55, 0x7F];
+            let back = s.echo(sent)?;
+            if back != sent {
+                return Err(format!("echo came back as {back:02X?}").into());
+            }
+            println!("ok");
+        }
+        Command::Disks => {
+            let mut s = connect()?;
+            for d in s.disks()? {
+                let ready = if s.check_disk(d.handle)? {
+                    ""
+                } else {
+                    "  (not ready)"
+                };
+                let rw = if d.writable { "" } else { ", read-only" };
+                println!("  {:5}  {:<20} {:?}{rw}{ready}", d.handle, d.name, d.kind);
+            }
+        }
         Command::Meters => {
             let m = connect()?.meters()?;
             let show = |raw: u8| s5k_protocol_db(raw);
@@ -435,6 +508,111 @@ fn s5k_protocol_db(raw: u8) -> String {
     } else {
         format!("{:>4} dB", -(raw as i32))
     }
+}
+
+/// MIDI note as the sampler shows it: 21 = A-1, 60 = C3.
+fn note_name(n: u8) -> String {
+    const NAMES: [&str; 12] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    format!("{}{}", NAMES[n as usize % 12], n as i32 / 12 - 2)
+}
+
+const PLAYBACK: [&str; 6] = [
+    "no looping",
+    "one shot",
+    "loop in release",
+    "loop until release",
+    "LIR > retrig",
+    "play > retrig",
+];
+
+fn show(kind: Kind, name: &str) -> Res<()> {
+    let kind_ = ItemKind::from(kind);
+    let mut s = connect()?;
+    let all = names_of(&mut s, kind_)?;
+    let (index, name) = resolve(&all, &[name.to_string()])?.remove(0);
+    println!("{name}");
+    match kind {
+        Kind::Sample => {
+            let f = s.sample_format(index)?;
+            let p = s.sample_playback(index)?;
+            let ch = if f.channels == 2 { "stereo" } else { "mono" };
+            let ram = if f.is_virtual { "virtual" } else { "RAM" };
+            println!("  {} frames, {} Hz {ch}, {ram}", f.frames, f.sample_rate);
+            println!("  play     {} – {}", p.start, p.end);
+            println!(
+                "  root     {} ({}), semitone {:+}, fine {:+}",
+                note_name(p.root_note),
+                p.root_note,
+                p.semitone,
+                p.fine
+            );
+            let mode = PLAYBACK.get(p.playback as usize).copied().unwrap_or("?");
+            println!("  playback {mode}");
+            match p.loop_points {
+                Some((a, b)) => println!("  loop     {a} – {b}"),
+                None => println!("  loop     none"),
+            }
+        }
+        Kind::Program => {
+            println!("  {} keygroups", s.program_keygroups(index)?);
+            match s.program_numbers()?.get(index as usize).copied().flatten() {
+                Some(n) => println!("  program number {n}"),
+                None => println!("  program number off"),
+            }
+        }
+        Kind::Multi => {
+            let parts = s.multi_assigned_parts(index)?;
+            println!("  {} parts, {} assigned", s.multi_parts(index)?, parts.len());
+            for p in parts {
+                let c = &p.settings;
+                let channel = format!(
+                    "{}{}",
+                    c.midi_channel % 16 + 1,
+                    if c.midi_channel < 16 { 'A' } else { 'B' }
+                );
+                let state = match p.state {
+                    s5k::PartState::Normal => "",
+                    s5k::PartState::Muted => "  muted",
+                    s5k::PartState::Solo => "  solo",
+                };
+                println!(
+                    "  {:3}  {:<20} ch {channel:<3} level {:3}  pan {:+3}  {}–{}{state}",
+                    p.part + 1,
+                    p.program,
+                    c.level,
+                    c.pan,
+                    note_name(c.low_note),
+                    note_name(c.high_note),
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+fn keygroup(action: KeygroupAction) -> Res<()> {
+    let mut s = connect()?;
+    let all = s.program_names()?;
+    match action {
+        KeygroupAction::Add { program, count } => {
+            let (index, name) = resolve(&all, &[program])?.remove(0);
+            s.add_keygroups(index, count)?;
+            println!("{name}: {} keygroups", s.program_keygroups(index)?);
+        }
+        KeygroupAction::Delete {
+            program,
+            keygroup,
+            yes,
+        } => {
+            let (index, name) = resolve(&all, &[program])?.remove(0);
+            if !yes && !confirm(&format!("Delete keygroup {keygroup} of {name}?")) {
+                return Ok(());
+            }
+            s.delete_keygroup(index, keygroup)?;
+            println!("{name}: {} keygroups", s.program_keygroups(index)?);
+        }
+    }
+    Ok(())
 }
 
 fn audition(name: &str, play: bool) -> Res<()> {

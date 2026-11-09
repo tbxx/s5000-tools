@@ -181,7 +181,7 @@ section = 0x02
 set_item = 0x06
 get_item = 0x05
 source = "spec"
-notes = "Composite, 8 bytes: year as u14 (1980-2079), month 1-12, day 1-31, weekday 1-7 (1 = Sunday), hour 0-23, minute 0-59, second 0-59."
+notes = "Composite, 8 bytes: year as u14 (1980-2079), month 1-12, day 1-31, weekday 1-7 (1 = Sunday), hour 0-23, minute 0-59, second 0-59. The get (02 05) gets no answer at all on an S5000 with OS 2.14 (2026-11-08); the set is untested."
 
 [[param]]
 id = "system.play_mode"

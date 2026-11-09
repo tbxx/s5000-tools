@@ -274,6 +274,29 @@ pub struct Program {
     items: Vec<Item>,
 }
 
+impl Keygroup {
+    /// A keygroup spanning the whole keyboard with four empty zones, as in
+    /// a new program.
+    fn blank() -> Self {
+        let mut kloc = vec![0u8; 16];
+        kloc[4] = 21;
+        kloc[5] = 127;
+        let mut amp = vec![0u8; 18];
+        amp[7] = 100; // sustain
+        amp[4] = 30; // release
+        let mut chunks = vec![Chunk::new(b"kloc", kloc), Chunk::new(b"env ", amp)];
+        chunks.push(Chunk::new(b"env ", vec![0; 18]));
+        chunks.push(Chunk::new(b"env ", vec![0; 18]));
+        let mut filt = vec![0u8; 10];
+        filt[2] = 100; // cutoff fully open
+        chunks.push(Chunk::new(b"filt", filt));
+        for _ in 0..4 {
+            chunks.push(Chunk::new(b"zone", vec![0; 48]));
+        }
+        Self { chunks }
+    }
+}
+
 impl Program {
     /// A new program in the current file version: `keygroups` keygroups
     /// spanning the whole keyboard, no samples assigned, neutral settings.
@@ -296,24 +319,7 @@ impl Program {
             Item::Chunk(Chunk::new(b"lfo ", lfo.to_vec())),
             Item::Chunk(Chunk::new(b"mods", vec![0; 38])),
         ];
-        for _ in 0..keygroups.max(1) {
-            let mut kloc = vec![0u8; 16];
-            kloc[4] = 21;
-            kloc[5] = 127;
-            let mut amp = vec![0u8; 18];
-            amp[7] = 100; // sustain
-            amp[4] = 30; // release
-            let mut chunks = vec![Chunk::new(b"kloc", kloc), Chunk::new(b"env ", amp)];
-            chunks.push(Chunk::new(b"env ", vec![0; 18]));
-            chunks.push(Chunk::new(b"env ", vec![0; 18]));
-            let mut filt = vec![0u8; 10];
-            filt[2] = 100; // cutoff fully open
-            chunks.push(Chunk::new(b"filt", filt));
-            for _ in 0..4 {
-                chunks.push(Chunk::new(b"zone", vec![0; 48]));
-            }
-            items.push(Item::Keygroup(Keygroup { chunks }));
-        }
+        items.extend((0..keygroups.max(1)).map(|_| Item::Keygroup(Keygroup::blank())));
         Self { size_field: 0, items }
     }
 
@@ -421,6 +427,29 @@ impl Program {
 
     pub fn keygroup_mut(&mut self, n: usize) -> Option<&mut Keygroup> {
         self.keygroups_mut().nth(n)
+    }
+
+    /// Appends `count` blank keygroups, as the sampler's "add keygroups" does.
+    pub fn add_keygroups(&mut self, count: usize) {
+        self.items
+            .extend((0..count).map(|_| Item::Keygroup(Keygroup::blank())));
+    }
+
+    /// Removes keygroup `n` (0-based). Returns false if there is no such
+    /// keygroup.
+    pub fn remove_keygroup(&mut self, n: usize) -> bool {
+        let Some(at) = self
+            .items
+            .iter()
+            .enumerate()
+            .filter(|(_, i)| matches!(i, Item::Keygroup(_)))
+            .nth(n)
+            .map(|(at, _)| at)
+        else {
+            return false;
+        };
+        self.items.remove(at);
+        true
     }
 
     /// Distinct sample names used by any zone, in first-use order.

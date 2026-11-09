@@ -192,18 +192,33 @@ item, chosen with `xx 06 <index>`.
 
 ### Listing memory
 
+Verified on an S5000 (OS 2.14) on 2026-11-08 unless marked. `s5k` implements
+all of these (`crates/s5k/src/items.rs`, `sampler.rs`).
+
 | Command | Reply |
 |---|---|
-| `0E 10` | number of samples (14-bit) |
-| `0E 11 <index>` | sample name |
-| `0A 10` | number of programs |
-| `0A 13` | current program's name |
-| `0C 40` | number of multis |
-| `16 10`, `16 20`, `14 10` | MIDI file / song counts |
-| `10 04` / `10 05` | number of disks / disk list (handle, type, name) |
+| `00 00` | done (query: the sampler is there) |
+| `00 06 <4 bytes>` | the same 4 bytes back (echo test) |
+| `0E 10` / `0A 10` / `0C 40` | number of samples / programs / multis (14-bit) |
+| `0E 12` / `0A 19` / `0C 51` | all names, one string after another |
+| `0E 11 <index>` | one sample's name |
+| `0E 13` / `0A 12` / `0C 42` | index of the current sample / program / multi; error `04` when there is none |
+| `0E 14` / `0A 13` / `0C 43` | name of the current item |
+| `0A 18` / `0C 50` | number of every program / multi: an (on/off, number − 1) pair each |
+| `0C 52` | parts − 1 of every multi, one byte each |
+| `14 10`, `14 11 <index>`, `14 13`, `14 14` | scenelists: count, name by index, current index, current name |
+| `16 10`, `16 11 <index>`, `16 13`, `16 14` | MIDI song files: the same |
+| `16 20`, `16 21 <index>` | set lists: count, name by index |
 
-To list programs, ak.Sys selects each one in turn (`0A 06 <index>`) and reads
-`0A 13`. It reads multi names with `2C <index> 43`, see [§8](#8-multi-parameters).
+"All names" and "all numbers" with nothing in memory answer error `04`, as
+does "current" (and its name) with nothing current; check the count first.
+The scenelist and MIDI file sections have no "all names" item, so names are
+read one index at a time. Their counts were 0 on the test sampler, so the
+name replies are unverified.
+
+ak.Sys lists programs by selecting each one (`0A 06 <index>`) and reading
+`0A 13`, and reads multi names with `2C <index> 43`; `0A 19` and `0C 51` do
+the same in one message.
 
 ### Creating, renaming, deleting
 
@@ -212,13 +227,23 @@ To list programs, ak.Sys selects each one in turn (`0A 06 <index>`) and reads
 | `0A 06 <index>` / `0C 06 <index>` / `0E 06 <index>` | make a program / multi / sample current |
 | `0A 03 <keygroups> <name>` | create a program with n keygroups |
 | `0C 01 <size>` then `0C 02 <name>` | create a multi (size 0 = 32 parts, 1 = 64, 2 = 128) and name it |
+| `0A 05 <name>` / `0C 05 <name>` / `0E 05 <name>` | make the item with this name current; error `04` if there is none |
+| `0A 02 <name>` | create a program with one keygroup; it becomes current |
 | `0A 09 <name>` / `0E 09 <name>` | rename current program / sample |
 | `0C 30 <name>` | rename current multi |
 | `0A 08` / `0C 08` / `0E 08` | delete current program / multi / sample |
+| `2A <p> 0B <n>` | add n keygroups (1–98) at the end of program p |
+| `2A <p> 0C <k>` | delete keygroup k (from 0) of program p; error `06` for the last keygroup or one that does not exist |
+| `2C <m> 34 <part>` | remove the program from a part (from 0); the part keeps its other settings; error `02` past the last part |
 | `02 32` | **delete everything in memory** |
 
-aksy also lists `0A 02 <name>` (create an empty program) and `0A 07` / `0E 07`
-(delete all programs / samples); ak.Sys was not seen using them.
+`0A 02`, `0A 05`/`0C 05`/`0E 05`, `0B`, `0C` and `0C 34` were verified on an
+S5000 (OS 2.14) on 2026-11-08, on items created for the test. `0A 07`,
+`0C 07` and `0E 07` (delete all programs / multis / samples) are in the
+spec; s5000-tools does not send them (`02 32` clears everything).
+`14 06` (select a scenelist) is implemented but unverified; deleting and
+renaming scenelists (`14 08`, `14 09`), MIDI files (`16 09`) and set lists
+(`16 22`, `16 23`) are not implemented.
 
 ## 6. File transfers
 
@@ -410,7 +435,14 @@ Multis are addressed by index: `2C <multi hi> <multi lo> <item> ...`.
 | `2C <m> 43` | name |
 | `2C <m> 44` | number of parts − 1 (`1F` = 32) |
 | `2C <m> 45 <part>` | program name assigned to the part |
-| `2C <m> 47 <part>` | 11-byte part summary: MIDI channel, mute, level, ?, pan (+64), ?, ?, fine (+50), semi (+36), low key, high key |
+| `2C <m> 46` | program name of every part, from part 0; an empty part is a single `00` |
+| `2C <m> 47 <part>` | 12-byte part summary: the values of items `20`–`2B` in order: MIDI channel, mute, solo, level, output, pan (+64), FX channel, FX send, fine (+50), transpose (+36), low key, high key |
+| `2C <m> 48` | one byte per part: 0 normal, 1 muted, 2 solo. A part silenced by another part's solo reads 1 |
+
+`46`, `47` and `48` were verified on an S5000 (OS 2.14) on 2026-11-08. An
+earlier capture showed 11 bytes for `47`; the sampler sends 12. For a part
+past the end of the multi, `47` answers with junk (including bytes above
+`7F`) instead of an error, so check the part number first.
 
 Part settings, with parts numbered from 0:
 
@@ -438,8 +470,8 @@ Samples are addressed by index with `2E <sample hi> <sample lo> <item>`.
 
 | Command | Reply / action |
 |---|---|
-| `2E <s> 34` | channels (14-bit), length in frames (28-bit), sample rate (28-bit) |
-| `2E <s> 4B` | play start (28-bit), play end (28-bit), root note, 5 bytes (probably semitone and fine, signed, plus one unknown), loop start (28-bit), loop end (28-bit) |
+| `2E <s> 34` | type (0 RAM, 1 virtual), channels (1 or 2), length in frames (28-bit), sample rate (28-bit): 10 bytes |
+| `2E <s> 4B` | play start (28-bit), play end (28-bit), root note, semitone (signed), fine (signed), playback mode, loop start (28-bit), loop end (28-bit): 22 bytes. A sample without a loop reports `7F 7F 7F 7F` for both loop points |
 | `2E <s> 0A` | **start auditioning** the sample (plays on the sampler's outputs) |
 | `2E <s> 0B` | stop auditioning |
 
@@ -471,6 +503,11 @@ and parameter.
 
 Channels and modules are numbered from 0. Effects settings belong to the
 current multi and are saved in its `.akm`.
+
+The spec's `32 <multi hi> <multi lo> …` (effects of a multi given by index)
+gets no answer at all on an S5000 with OS 2.14 (2026-11-08, `01`, `10`, `11`,
+`21`, `31`, `41`, `51` tried), so s5000-tools always uses section `12` on
+the current multi.
 
 ## 11. Front panel
 
@@ -536,7 +573,14 @@ appears, and the restart can hang until the power is cycled (twice on
 and `10 05` list the disks without it.
 
 Disk listing, loading, saving and deleting work on hardware. An S5000 with
-only its floppy drive reports one disk, handle 1, type 0, named "No disk".
+only its floppy drive and no floppy in it reports one disk: handle 128 (`01
+00`), type 0, format byte 8 (outside the spec's 0–7), SCSI ID 0, writable,
+named "No disk". `10 03 01 00` answers error `101` (disk invalid) for the
+empty drive; `10 07` and `10 0E` answer 0 and "No disk"; with no disk
+selected, `10 06` and `10 08` answer `101` too (2026-11-08).
+
+s5000-tools refuses to send `10 01` at the lowest level (`Sampler::request`),
+whatever asks for it.
 
 ### Disks
 
@@ -585,8 +629,11 @@ only its floppy drive reports one disk, handle 1, type 0, named "No disk".
 | `10 2B <name>` | load a file with everything it uses (a program's samples, a multi's programs) |
 | `10 2C <index> <type> <overwrite> <children>` | save a memory item to disk; type 1 multi, 2 program, 3 sample, 4 MIDI file, 5 setlist, 6 scenelist; overwrite 0/1; children 0/1 |
 | `10 2D <type> <overwrite> <children>` | save every memory item of a type |
-| `10 30 <index>` | audition a sample file from disk |
+| `10 30 <index>` | audition a sample file from disk (implemented, unverified) |
 | `10 31` | stop auditioning |
+
+s5000-tools implements every item above except `10 01` (never sent), `10 0D`
+(eject) and `10 18` (rename a folder).
 
 Indexes of files and folders change whenever the disk changes, so refer to
 items by name where possible. Plain "load" does not load dependencies; use
@@ -596,5 +643,7 @@ items by name where possible. Plain "load" does not load dependencies; use
 
 - 2-byte index encoding in the raw transfer commands for indexes ≥ 128.
 - The 128-byte block after a `01 00 00 00` keep-alive reply.
-- `02 01`, `02 04`, `02 20`, `02 21` status values (see the spec's System
-  Setup tables 6–7).
+- `02 01`, `02 04`, `02 20`, `02 21` status values: the spec's OS
+  sub-version, model, play mode and panel lock. An S5000 answers 0, 0
+  (S5000), 1 (program mode) and 0.
+- `02 05` (read the clock) gets no answer on an S5000 with OS 2.14.

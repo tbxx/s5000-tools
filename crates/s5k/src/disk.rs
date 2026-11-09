@@ -111,6 +111,83 @@ impl<T: Transport> Sampler<T> {
         self.disk_request(0x02, &encode::u14(handle)).map(drop)
     }
 
+    /// Number of disks (`10 04`).
+    pub fn disk_count(&mut self) -> Result<u8> {
+        self.disk_request(0x04, &[])?
+            .first()
+            .copied()
+            .ok_or_else(|| Error::Protocol("short disk-count reply".into()))
+    }
+
+    /// Whether a disk is ready to use (`10 03`): `Ok(false)` when the
+    /// sampler reports it invalid, e.g. an empty floppy drive.
+    pub fn check_disk(&mut self, handle: u16) -> Result<bool> {
+        match self.disk_request(0x03, &encode::u14(handle)) {
+            Ok(_) => Ok(true),
+            Err(Error::Sampler { code: 0x101, .. }) => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Type of a disk by handle (`10 07`).
+    pub fn disk_type(&mut self, handle: u16) -> Result<DiskType> {
+        let d = self.disk_request(0x07, &encode::u14(handle))?;
+        Ok(DiskType::from(d.first().copied().unwrap_or(0xFF)))
+    }
+
+    /// Name of a disk by handle (`10 0E`).
+    pub fn disk_name(&mut self, handle: u16) -> Result<String> {
+        Ok(encode::read_string(&self.disk_request(0x0E, &encode::u14(handle))?).0)
+    }
+
+    /// Handle of the selected disk (`10 08`), `None` if none is selected or
+    /// it is not ready.
+    pub fn selected_disk(&mut self) -> Result<Option<u16>> {
+        match self.disk_request(0x08, &[]) {
+            Ok(d) => Ok(read_u14(&d)),
+            Err(Error::Sampler { code: 0x101, .. }) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Type of the selected disk (`10 06`).
+    pub fn selected_disk_type(&mut self) -> Result<DiskType> {
+        let d = self.disk_request(0x06, &[])?;
+        Ok(DiskType::from(d.first().copied().unwrap_or(0xFF)))
+    }
+
+    /// Format of the selected disk (`10 0A`).
+    pub fn disk_format(&mut self) -> Result<DiskFormat> {
+        let d = self.disk_request(0x0A, &[])?;
+        Ok(DiskFormat::from(d.first().copied().unwrap_or(0xFF)))
+    }
+
+    /// Name of a sub-folder of the current folder, by index (`10 11`).
+    pub fn folder_name(&mut self, index: u16) -> Result<String> {
+        Ok(encode::read_string(&self.disk_request(0x11, &encode::u14(index))?).0)
+    }
+
+    /// Name of a file in the current folder, by index (`10 21`).
+    pub fn file_name(&mut self, index: u16) -> Result<String> {
+        Ok(encode::read_string(&self.disk_request(0x21, &encode::u14(index))?).0)
+    }
+
+    /// Index of the file with this name in the current folder (`10 24`).
+    pub fn file_index(&mut self, name: &str) -> Result<u16> {
+        read_u14(&self.disk_request(0x24, &encode::string(name))?)
+            .ok_or_else(|| Error::Protocol("short file-index reply".into()))
+    }
+
+    /// Starts or stops playing a sample file from the current folder,
+    /// without loading it (`10 30`, `10 31`).
+    pub fn audition_disk_file(&mut self, index: u16, play: bool) -> Result<()> {
+        if play {
+            self.disk_request(0x30, &encode::u14(index)).map(drop)
+        } else {
+            self.disk_request(0x31, &[]).map(drop)
+        }
+    }
+
     /// Current folder on the selected disk; empty at the root.
     pub fn disk_path(&mut self) -> Result<String> {
         Ok(encode::read_string(&self.disk_request(0x09, &[])?).0)

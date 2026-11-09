@@ -18,7 +18,15 @@ s5k info                    # name, OS version, free memory
 s5k list                    # samples, programs and multis in memory
 s5k screen panel.png        # save the sampler's display
 s5k meters                  # output and input levels, once
+s5k show sample Kick        # length, rate, play range, root note, tuning, loop
+s5k show program Pad        # keygroups and program number
+s5k show multi Song         # parts with a program: channel, level, pan, range
+s5k disks                   # the sampler's disks (read-only)
+s5k ping                    # check the sampler answers, bytes unchanged
 ```
+
+`s5k list` also lists MIDI files, set lists and scenelists when there are
+any.
 
 ## Transfers
 
@@ -43,6 +51,9 @@ s5k rename program "Pad" "Warm Pad"
 s5k delete sample Kick Snare             # asks first; -y to skip the question
 s5k create program "New Kit" --size 16   # 16 keygroups
 s5k create multi "Live" --size 64        # 32, 64 or 128 parts
+s5k keygroup add "New Kit" 4             # four more keygroups at the end
+s5k keygroup delete "New Kit" 3          # keygroup 3 (asks first; -y to skip)
+s5k clear-part Live 0 5                  # take the programs out of parts 1 and 6
 s5k play Kick                            # audition on the sampler's outputs
 s5k stop Kick
 s5k clear                                # delete everything (asks first)

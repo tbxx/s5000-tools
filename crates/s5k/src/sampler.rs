@@ -3,7 +3,7 @@
 
 use std::time::{Duration, Instant};
 
-use s5k_protocol::encode::{self, read_strings, read_u14, read_u28};
+use s5k_protocol::encode::{self, read_strings, read_u14};
 use s5k_protocol::meters::Meters;
 use s5k_protocol::panel::{self, Key, SCREEN_BYTES, Screen};
 use s5k_protocol::sysex::{self, section};
@@ -39,6 +39,8 @@ pub struct Heartbeat {
 pub struct SampleInfo {
     pub index: u16,
     pub name: String,
+    /// Played from disk rather than held in RAM.
+    pub is_virtual: bool,
     pub channels: u16,
     pub frames: u32,
     pub sample_rate: u32,
@@ -138,6 +140,13 @@ impl<T: Transport> Sampler<T> {
     }
 
     fn write_message(&mut self, msg: &Message) -> Result<()> {
+        // `10 01` (refresh the disk list) restarts an S5000 on OS 2.14 and can
+        // leave it hung until a power cycle (docs/protocol.md §13).
+        if msg.section == section::DISK && msg.item == 0x01 {
+            return Err(Error::Invalid(
+                "refusing to send 10 01: it restarts the sampler".into(),
+            ));
+        }
         self.drain();
         for packet in msg.usb_packets() {
             self.transport.write(&packet)?;
@@ -173,7 +182,7 @@ impl<T: Transport> Sampler<T> {
                 Status::Error => {
                     return Err(Error::Sampler {
                         section: msg.section,
-                        item: msg.item,
+                        item: msg.command_item(),
                         code: reply.error_code().unwrap_or(0xFFFF),
                     });
                 }
@@ -265,13 +274,14 @@ impl<T: Transport> Sampler<T> {
     }
 
     pub fn sample_info(&mut self, index: u16, name: String) -> Result<SampleInfo> {
-        let d = self.indexed(section::SAMPLE_BY_INDEX, index, 0x34, &[])?;
+        let f = self.sample_format(index)?;
         Ok(SampleInfo {
             index,
             name,
-            channels: read_u14(&d).unwrap_or(0),
-            frames: d.get(2..).and_then(read_u28).unwrap_or(0),
-            sample_rate: d.get(6..).and_then(read_u28).unwrap_or(0),
+            is_virtual: f.is_virtual,
+            channels: f.channels as u16,
+            frames: f.frames,
+            sample_rate: f.sample_rate,
         })
     }
 
@@ -326,11 +336,8 @@ impl<T: Transport> Sampler<T> {
 
     /// Program names used by a multi's parts (empty parts omitted).
     pub fn multi_part_programs(&mut self, multi: u16) -> Result<Vec<String>> {
-        let parts = self.multi_parts(multi)?;
         let mut names = Vec::new();
-        for part in 0..parts {
-            let d = self.indexed(section::MULTI_BY_INDEX, multi, 0x45, &[part as u8])?;
-            let name = encode::read_string(&d).0;
+        for name in self.multi_part_names(multi)? {
             if !name.is_empty() && !names.contains(&name) {
                 names.push(name);
             }
@@ -340,7 +347,7 @@ impl<T: Transport> Sampler<T> {
 
     // --- Managing memory --------------------------------------------------
 
-    fn kind_section(kind: ItemKind) -> Result<u8> {
+    pub(crate) fn kind_section(kind: ItemKind) -> Result<u8> {
         match kind {
             ItemKind::Sample => Ok(section::SAMPLE),
             ItemKind::Program => Ok(section::PROGRAM),

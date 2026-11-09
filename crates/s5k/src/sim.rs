@@ -272,6 +272,11 @@ impl Simulator {
                 self.heartbeat = args.first() == Some(&1);
                 self.done(&msg)
             }
+            (section::SYSEX_CONFIG, 0x06) => {
+                let mut echo = args.to_vec();
+                echo.resize(4, 0);
+                self.reply(&msg, 0x52, &echo)
+            }
             (section::SYSEX_CONFIG, _) => self.done(&msg),
             (section::SYSTEM, 0x03) => self.reply(&msg, 0x52, &encode::string("AKAI S5000 (simulated)")),
             (section::SYSTEM, 0x00) => self.reply(&msg, 0x52, &[2, 14]),
@@ -353,7 +358,7 @@ impl Simulator {
                     let (channels, frames, rate) = Wav::parse(bytes)
                         .map(|w| (w.format().channels, w.frames(), w.format().sample_rate))
                         .unwrap_or((0, 0, 0));
-                    let mut data = encode::u14(channels).to_vec();
+                    let mut data = vec![0, channels as u8]; // RAM sample
                     data.extend(split7(frames as u64, 4));
                     data.extend(split7(rate as u64, 4));
                     self.reply(&msg, 0x52, &data)
@@ -391,6 +396,139 @@ impl Simulator {
                     .unwrap_or_default();
                 self.reply(&msg, 0x52, &encode::string(&name))
             }
+            (s, 0x05) if kind_of(s).is_some() && !indexed => {
+                let k = kind_of(s).unwrap();
+                let name = encode::read_string(args).0;
+                match self.items(k).iter().position(|(n, _)| *n == name) {
+                    Some(i) => {
+                        self.current[k] = i;
+                        self.done(&msg)
+                    }
+                    None => self.error(&msg, 4),
+                }
+            }
+            (section::SAMPLE, 0x13) | (section::PROGRAM, 0x12) | (section::MULTI, 0x42) => {
+                let k = kind_of(msg.section).unwrap();
+                if self.current[k] >= count(self, k) {
+                    return self.error(&msg, 4);
+                }
+                let i = self.current[k] as u16;
+                self.reply(&msg, 0x52, &encode::u14(i))
+            }
+            (section::SAMPLE, 0x11) => {
+                let i = read_u14(args).unwrap_or(0) as usize;
+                match self.samples.get(i) {
+                    Some((name, _)) => {
+                        let name = encode::string(name);
+                        self.reply(&msg, 0x52, &name)
+                    }
+                    None => self.error(&msg, 4),
+                }
+            }
+            (section::PROGRAM, 0x18) | (section::MULTI, 0x50) | (section::MULTI, 0x52) => {
+                let k = kind_of(msg.section).unwrap();
+                if count(self, k) == 0 {
+                    return self.error(&msg, 4);
+                }
+                let data: Vec<u8> = if item == 0x52 {
+                    self.multis
+                        .iter()
+                        .map(|(_, b)| Multi::parse(b).map_or(31, |m| m.part_count() as u8 - 1))
+                        .collect()
+                } else {
+                    vec![0; 2 * count(self, k)] // numbers off
+                };
+                self.reply(&msg, 0x52, &data)
+            }
+            (section::PROGRAM, 0x02) => {
+                let name = encode::read_string(args).0;
+                self.programs.push((name, Program::blank(1).to_bytes()));
+                self.current[1] = self.programs.len() - 1;
+                self.done(&msg)
+            }
+            (section::PROGRAM_BY_INDEX, 0x0B | 0x0C) => {
+                let n = args.first().copied().unwrap_or(0) as usize;
+                let Some(mut p) = self.programs.get(index).and_then(|(_, b)| Program::parse(b).ok()) else {
+                    return self.error(&msg, 4);
+                };
+                let ok = if item == 0x0B {
+                    p.add_keygroups(n);
+                    true
+                } else {
+                    p.keygroups().count() > 1 && p.remove_keygroup(n)
+                };
+                if !ok {
+                    return self.error(&msg, 6);
+                }
+                self.programs[index].1 = p.to_bytes();
+                self.done(&msg)
+            }
+            (section::MULTI_BY_INDEX, 0x46 | 0x47 | 0x48 | 0x34) => {
+                let Some(mut m) = self.multis.get(index).and_then(|(_, b)| Multi::parse(b).ok()) else {
+                    return self.error(&msg, 4);
+                };
+                let part = args.first().copied().unwrap_or(0) as usize;
+                match item {
+                    0x46 => {
+                        let names: Vec<u8> = (0..m.part_count())
+                            .flat_map(|p| encode::string(&m.part_program(p).unwrap_or_default()))
+                            .collect();
+                        self.reply(&msg, 0x52, &names)
+                    }
+                    0x47 => {
+                        if part >= m.part_count() {
+                            return self.error(&msg, 2);
+                        }
+                        let v = |name: &str| m.part_get(part, name).unwrap_or(0);
+                        let data = [
+                            v("midi_channel") as u8,
+                            0,
+                            0,
+                            v("level") as u8,
+                            0,
+                            (v("pan") + 64) as u8,
+                            v("fx_channel") as u8,
+                            v("fx_send") as u8,
+                            (v("fine") + 50) as u8,
+                            (v("semitone") + 36) as u8,
+                            v("low_key") as u8,
+                            v("high_key") as u8,
+                        ];
+                        self.reply(&msg, 0x52, &data)
+                    }
+                    0x48 => {
+                        let states = vec![0; m.part_count()];
+                        self.reply(&msg, 0x52, &states)
+                    }
+                    _ => {
+                        if m.set_part_program(part, "").is_err() {
+                            return self.error(&msg, 2);
+                        }
+                        self.multis[index].1 = m.to_bytes();
+                        self.done(&msg)
+                    }
+                }
+            }
+            (section::SAMPLE_BY_INDEX, 0x4B) => {
+                let Some(wav) = self.samples.get(index).and_then(|(_, b)| Wav::parse(b).ok()) else {
+                    return self.error(&msg, 4);
+                };
+                let info = wav.akai_info();
+                let end = info.map_or(wav.frames().saturating_sub(1), |i| i.play_end);
+                let mut data = split7(info.map_or(0, |i| i.play_start) as u64, 4);
+                data.extend(split7(end as u64, 4));
+                data.push(info.map_or(60, |i| i.root_note));
+                data.extend(encode::signed7(info.map_or(0, |i| i.semitone as i32)));
+                data.extend(encode::signed7(info.map_or(0, |i| i.fine as i32)));
+                data.push(0);
+                let (ls, le) = info
+                    .and_then(|i| i.loop_points)
+                    .unwrap_or((0x0FFF_FFFF, 0x0FFF_FFFF));
+                data.extend(split7(ls as u64, 4));
+                data.extend(split7(le as u64, 4));
+                self.reply(&msg, 0x52, &data)
+            }
+            (section::SCENELIST, 0x10) | (section::SONG, 0x10 | 0x20) => self.reply(&msg, 0x52, &[0, 0]),
             (section::PANEL, _) => self.done(&msg),
             (section::DISK, item) => {
                 let args = args.to_vec();

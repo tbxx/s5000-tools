@@ -2,6 +2,7 @@
 //! parsing replies and running transfers as state machines. See
 //! `docs/protocol.md`.
 
+pub mod blocks;
 pub mod encode;
 pub mod meters;
 pub mod panel;

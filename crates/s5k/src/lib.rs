@@ -14,6 +14,7 @@
 pub mod bundle;
 pub mod disk;
 pub mod error;
+pub mod items;
 pub mod params;
 pub mod sampler;
 pub mod sim;
@@ -21,7 +22,9 @@ pub mod sim_disk;
 
 pub use bundle::{Bundle, ItemRef, ProgramDeps};
 pub use error::{Error, Result};
+pub use items::Part;
 pub use params::{Target, Value, catalog};
+pub use s5k_protocol::blocks::{PartState, PartSummary, SampleFormat, SamplePlayback};
 pub use s5k_protocol::meters::Meters;
 pub use s5k_protocol::panel::{Key, Screen};
 /// Screen dimensions in pixels.

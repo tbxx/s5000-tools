@@ -22,7 +22,9 @@ multi FX. Not included: one-off actions (create, delete, select, audition),
 memory listings (counts, name lists, current index), block replies (`0C 47`,
 `0E 34`, `0E 4B`), SysEx configuration (`00`), disk tools, scenelists, MIDI
 files and the front panel. Those are documented in
-[protocol.md](../docs/protocol.md).
+[protocol.md](../docs/protocol.md) and implemented by hand in the `s5k`
+crate (`sampler.rs`, `items.rs`, `disk.rs`); block replies are parsed in
+`s5k_protocol::blocks`.
 
 ## Schema
 

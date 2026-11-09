@@ -365,6 +365,44 @@ impl Simulator {
                     }
                     None
                 }
+                0x03 | 0x07 | 0x0E => {
+                    let h = read_u14(args).unwrap_or(0);
+                    let d = self.disk.disks.iter().find(|d| d.handle == h).ok_or(0x10C_u16)?;
+                    match item {
+                        0x03 => None,
+                        0x07 => Some(vec![1]),
+                        _ => Some(encode::string(&d.name)),
+                    }
+                }
+                0x11 | 0x21 => {
+                    let i = read_u14(args).unwrap_or(0) as usize;
+                    let f = self.disk.current().ok_or(INVALID_DISK)?;
+                    let name = if item == 0x11 {
+                        &f.folders.get(i).ok_or(NOT_FOUND)?.0
+                    } else {
+                        &f.files.get(i).ok_or(NOT_FOUND)?.0
+                    };
+                    Some(encode::string(name))
+                }
+                0x24 => {
+                    let f = self.disk.current().ok_or(INVALID_DISK)?;
+                    let i = f
+                        .files
+                        .iter()
+                        .position(|(n, _)| n.eq_ignore_ascii_case(&name))
+                        .ok_or(NOT_FOUND)?;
+                    Some(encode::u14(i as u16).to_vec())
+                }
+                0x30 => {
+                    let i = read_u14(args).unwrap_or(0) as usize;
+                    let f = self.disk.current().ok_or(INVALID_DISK)?;
+                    let (file, _) = f.files.get(i).ok_or(NOT_FOUND)?;
+                    if !file.to_ascii_lowercase().ends_with(".wav") {
+                        return Err(0x02);
+                    }
+                    None
+                }
+                0x31 => None,
                 _ => return Err(0x00),
             })
         })();
