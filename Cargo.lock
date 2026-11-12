@@ -3081,6 +3081,7 @@ dependencies = [
  "s5k",
  "s5k-formats",
  "s5k-usb",
+ "serde_json",
 ]
 
 [[package]]

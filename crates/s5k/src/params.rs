@@ -248,6 +248,12 @@ impl<T: Transport> Sampler<T> {
             )));
         }
         let mut args = selectors.to_vec();
+        // An effects module's parameter is named by its number after the channel and
+        // module: `12 51 <ch> <mod> <param>`, `12 50 <ch> <mod> <param> <value>`
+        // (docs/protocol.md section 10).
+        if let Some(n) = param.fx_param {
+            args.push(n);
+        }
         args.extend(value.unwrap_or_default());
         let indexed = |section: u8, index: u16, rest: &[u8]| {
             let [hi, lo] = encode::u14(index);

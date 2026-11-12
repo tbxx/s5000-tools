@@ -144,7 +144,12 @@ enum KeygroupAction {
 #[derive(Subcommand)]
 enum ParamAction {
     /// List parameter ids, optionally for one scope (program, keygroup, zone, multi_part, sample, fx, system, midi).
-    List { scope: Option<String> },
+    List {
+        scope: Option<String>,
+        /// One JSON object per parameter (id, scope, label, range, value names, selectors).
+        #[arg(long)]
+        json: bool,
+    },
     /// Read a parameter, e.g. `s5k param get program.loudness Pad`.
     Get {
         id: String,
@@ -156,6 +161,8 @@ enum ParamAction {
         /// Selector values (LFO, zone, part, …), comma-separated.
         #[arg(short, long, value_delimiter = ',')]
         select: Vec<u8>,
+        #[arg(long)]
+        json: bool,
     },
     /// Change a parameter, e.g. `s5k param set keygroup.cutoff Pad 60 -k 2`.
     #[command(allow_negative_numbers = true)]
@@ -168,6 +175,36 @@ enum ParamAction {
         keygroup: u8,
         #[arg(short, long, value_delimiter = ',')]
         select: Vec<u8>,
+    },
+    /// Read every readable parameter of a scope in one connection, e.g.
+    /// `s5k param read keygroup Pad -k 2`. A parameter with a selector is read for
+    /// each of its values (LFO 1 and 2, zones 1-4, …) unless `-s` fixes them.
+    Read {
+        scope: String,
+        item: Option<String>,
+        #[arg(short, long, default_value_t = 1)]
+        keygroup: u8,
+        #[arg(short, long, value_delimiter = ',')]
+        select: Vec<u8>,
+        /// One JSON object per value instead of a table.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Change several parameters of one item in one connection and read each back, e.g.
+    /// `s5k param apply Pad keygroup.cutoff=60 zone.level@2=-6 -k 2`. `@` gives the
+    /// selectors (comma-separated).
+    #[command(allow_negative_numbers = true)]
+    Apply {
+        /// The program, multi or sample (omit for system/midi/fx parameters).
+        #[arg(long)]
+        item: Option<String>,
+        /// `id[@selectors]=value`, one or more.
+        #[arg(required = true)]
+        assignments: Vec<String>,
+        #[arg(short, long, default_value_t = 1)]
+        keygroup: u8,
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -634,12 +671,15 @@ fn find_wav(folder: &Path, sample: &str) -> Option<Vec<u8>> {
 }
 
 fn param(action: ParamAction) -> Res<()> {
-    use s5k::params::{Target, Value};
     let cat = s5k::catalog();
-    let (id, item, keygroup, select, value) = match action {
-        ParamAction::List { scope } => {
+    match action {
+        ParamAction::List { scope, json } => {
             for p in &cat.params {
                 if scope.as_deref().is_none_or(|s| s == p.scope) {
+                    if json {
+                        println!("{}", param_json(cat, p));
+                        continue;
+                    }
                     let range = match (p.min, p.max) {
                         (Some(a), Some(b)) => format!("{a}..{b}"),
                         _ => String::new(),
@@ -647,34 +687,164 @@ fn param(action: ParamAction) -> Res<()> {
                     println!("{:<40} {:<28} {}", p.id, p.label, range);
                 }
             }
-            return Ok(());
+            Ok(())
         }
         ParamAction::Get {
             id,
             item,
             keygroup,
             select,
-        } => (id, item, keygroup, select, None),
+            json,
+        } => {
+            let p = find_param(&id)?;
+            let mut s = connect()?;
+            let target = param_target(&mut s, p, item.as_deref(), keygroup)?;
+            let v = s.read_param(p, target, &select)?;
+            if json {
+                println!("{}", value_json(cat, p, &select, Ok(&v)));
+            } else {
+                println!("{} = {}", p.id, shown(cat, p, &v));
+            }
+            Ok(())
+        }
         ParamAction::Set {
             id,
             mut args,
             keygroup,
             select,
         } => {
-            let value = args.pop();
-            (id, args.pop(), keygroup, select, value)
+            let p = find_param(&id)?;
+            let text = args.pop().ok_or("give a value")?;
+            let item = args.pop();
+            let mut s = connect()?;
+            let target = param_target(&mut s, p, item.as_deref(), keygroup)?;
+            let v = parse_value(cat, p, &text)?;
+            s.write_param(p, target, &select, &v)?;
+            println!("{} := {v}", p.id);
+            Ok(())
         }
-    };
-    let p = cat
-        .get(&id)
-        .ok_or_else(|| format!("no parameter '{id}' (try `s5k param list`)"))?;
-    let mut s = connect()?;
+        ParamAction::Read {
+            scope,
+            item,
+            keygroup,
+            select,
+            json,
+        } => {
+            let params: Vec<_> = cat
+                .scope(&scope)
+                .filter(|p| p.get_item.is_some() && p.encoding.is_some())
+                .collect();
+            if params.is_empty() {
+                return Err(format!("no readable parameters in scope '{scope}'").into());
+            }
+            let mut s = connect()?;
+            let target = param_target(&mut s, params[0], item.as_deref(), keygroup)?;
+            // A module type's own parameters apply only where a module of that type is
+            // loaded (spec/README.md): learn each slot's type first and read only those.
+            let mut slot_types = std::collections::HashMap::new();
+            let module_type = cat.get("fx.module_type").filter(|_| scope == "fx");
+            for sel in module_type.map(|mt| selector_sets(mt, &[])).unwrap_or_default() {
+                let mt = module_type.expect("only listed with a module type");
+                if let Ok(s5k::params::Value::Number(t)) = s.read_param(mt, target, &sel) {
+                    slot_types.insert(sel, t);
+                }
+            }
+            for p in params {
+                for sel in selector_sets(p, &select) {
+                    // A (channel, module) slot the board does not have, or a module
+                    // type's parameter where another type is loaded, is skipped.
+                    let absent = scope == "fx" && sel.len() == 2 && !slot_types.contains_key(&sel);
+                    let other_type = p
+                        .fx_module_type
+                        .is_some_and(|t| slot_types.get(&sel) != Some(&i32::from(t)));
+                    if absent || other_type {
+                        continue;
+                    }
+                    let v = s.read_param(p, target, &sel);
+                    if json {
+                        println!(
+                            "{}",
+                            value_json(cat, p, &sel, v.as_ref().map_err(|e| e.to_string()))
+                        );
+                    } else {
+                        let at = if sel.is_empty() {
+                            String::new()
+                        } else {
+                            format!("@{}", join(&sel))
+                        };
+                        match v {
+                            Ok(v) => println!("{:<40} {}", format!("{}{at}", p.id), shown(cat, p, &v)),
+                            Err(e) => println!("{:<40} ({e})", format!("{}{at}", p.id)),
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+        ParamAction::Apply {
+            item,
+            assignments,
+            keygroup,
+            json,
+        } => {
+            let mut planned = Vec::new();
+            for a in &assignments {
+                let (lhs, text) = a
+                    .split_once('=')
+                    .ok_or_else(|| format!("'{a}' is not id=value"))?;
+                let (id, sel) = match lhs.split_once('@') {
+                    Some((id, sel)) => (
+                        id,
+                        sel.split(',')
+                            .map(str::parse::<u8>)
+                            .collect::<Result<Vec<_>, _>>()?,
+                    ),
+                    None => (lhs, Vec::new()),
+                };
+                let p = find_param(id)?;
+                planned.push((p, sel, parse_value(cat, p, text)?));
+            }
+            let mut s = connect()?;
+            for (p, sel, v) in planned {
+                let target = param_target(&mut s, p, item.as_deref(), keygroup)?;
+                s.write_param(p, target, &sel, &v)?;
+                let back = s.read_param(p, target, &sel);
+                if json {
+                    println!(
+                        "{}",
+                        value_json(cat, p, &sel, back.as_ref().map_err(|e| e.to_string()))
+                    );
+                } else {
+                    match back {
+                        Ok(b) => println!("{} := {}", p.id, shown(cat, p, &b)),
+                        Err(e) => println!("{} := {v} (not read back: {e})", p.id),
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
+fn find_param(id: &str) -> Res<&'static s5k::params::Param> {
+    s5k::catalog()
+        .get(id)
+        .ok_or_else(|| format!("no parameter '{id}' (try `s5k param list`)").into())
+}
+
+fn param_target(
+    s: &mut Sampler<UsbTransport>,
+    p: &s5k::params::Param,
+    item: Option<&str>,
+    keygroup: u8,
+) -> Res<s5k::params::Target> {
+    use s5k::params::Target;
     let mut index_of = |kind: ItemKind| -> Res<u16> {
-        let name = item.clone().ok_or("name the program, multi or sample")?;
-        let all = names_of(&mut s, kind)?;
-        Ok(resolve(&all, &[name])?[0].0)
+        let name = item.ok_or("name the program, multi or sample")?;
+        let all = names_of(s, kind)?;
+        Ok(resolve(&all, &[name.to_string()])?[0].0)
     };
-    let target = match p.scope.as_str() {
+    Ok(match p.scope.as_str() {
         "system" | "midi" => Target::Global,
         "fx" => Target::Effects,
         "program" => Target::Program(index_of(ItemKind::Program)?),
@@ -685,35 +855,123 @@ fn param(action: ParamAction) -> Res<()> {
         "multi" | "multi_part" => Target::Multi(index_of(ItemKind::Multi)?),
         "sample" => Target::Sample(index_of(ItemKind::Sample)?),
         other => return Err(format!("unknown scope {other}").into()),
+    })
+}
+
+fn parse_value(cat: &s5k::params::Catalog, p: &s5k::params::Param, text: &str) -> Res<s5k::params::Value> {
+    use s5k::params::Value;
+    Ok(if p.encoding.as_deref() == Some("string") {
+        Value::Text(text.to_string())
+    } else if let Some(i) = cat
+        .values(p)
+        .and_then(|l| l.iter().position(|n| n.eq_ignore_ascii_case(text)))
+    {
+        Value::Number(i as i32)
+    } else {
+        Value::Number(
+            text.parse()
+                .map_err(|_| format!("'{text}' is not a number or a known value"))?,
+        )
+    })
+}
+
+fn shown(cat: &s5k::params::Catalog, p: &s5k::params::Param, v: &s5k::params::Value) -> String {
+    // A value from a list is shown as the list spells it, units and all ("0 dB").
+    let named = match (v, cat.values(p)) {
+        (s5k::params::Value::Number(n), Some(list)) => list.get(*n as usize),
+        _ => None,
     };
-    let names = cat.values(p);
-    match value {
-        None => {
-            let v = s.read_param(p, target, &select)?;
-            let shown = match (&v, names) {
-                (Value::Number(n), Some(list)) => list.get(*n as usize).cloned().unwrap_or(v.to_string()),
-                _ => v.to_string(),
-            };
-            println!(
-                "{} = {shown}{}",
-                p.id,
-                p.units.as_ref().map(|u| format!(" {u}")).unwrap_or_default()
-            );
-        }
-        Some(text) => {
-            let v = if p.encoding.as_deref() == Some("string") {
-                Value::Text(text)
-            } else if let Some(i) = names.and_then(|l| l.iter().position(|n| n.eq_ignore_ascii_case(&text))) {
-                Value::Number(i as i32)
-            } else {
-                Value::Number(
-                    text.parse()
-                        .map_err(|_| format!("'{text}' is not a number or a known value"))?,
-                )
-            };
-            s.write_param(p, target, &select, &v)?;
-            println!("{} := {v}", p.id);
-        }
+    if let Some(name) = named {
+        return name.clone();
     }
-    Ok(())
+    format!(
+        "{v}{}",
+        p.units.as_ref().map(|u| format!(" {u}")).unwrap_or_default()
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::selector_sets;
+
+    #[test]
+    fn a_selector_is_read_for_each_value_unless_fixed() {
+        let cat = s5k::catalog();
+        let zone = cat.get("zone.level").unwrap();
+        assert_eq!(selector_sets(zone, &[]), vec![vec![1], vec![2], vec![3], vec![4]]);
+        assert_eq!(selector_sets(zone, &[2]), vec![vec![2]]);
+        let plain = cat.get("keygroup.cutoff").unwrap();
+        assert_eq!(selector_sets(plain, &[]), vec![Vec::<u8>::new()]);
+        assert_eq!(selector_sets(plain, &[1]), vec![Vec::<u8>::new()]);
+    }
+}
+
+/// The selector combinations a parameter is read for: `fixed` if given (and it has a
+/// selector), else every value of each of its selectors.
+fn selector_sets(p: &s5k::params::Param, fixed: &[u8]) -> Vec<Vec<u8>> {
+    use s5k::params::Index;
+    let specs = match &p.index {
+        None => return vec![Vec::new()], // a fixed selector does not apply to it
+        Some(Index::One(i)) => vec![i.clone()],
+        Some(Index::Many(v)) => v.clone(),
+    };
+    if !fixed.is_empty() {
+        return if fixed.len() == specs.len() {
+            vec![fixed.to_vec()]
+        } else {
+            Vec::new()
+        };
+    }
+    let mut sets = vec![Vec::new()];
+    for spec in specs {
+        sets = sets
+            .into_iter()
+            .flat_map(|prefix: Vec<u8>| {
+                (spec.min..=spec.max).map(move |v| {
+                    let mut next = prefix.clone();
+                    next.push(v as u8);
+                    next
+                })
+            })
+            .collect();
+    }
+    sets
+}
+
+fn join(sel: &[u8]) -> String {
+    sel.iter().map(u8::to_string).collect::<Vec<_>>().join(",")
+}
+
+fn param_json(cat: &s5k::params::Catalog, p: &s5k::params::Param) -> serde_json::Value {
+    use s5k::params::Index;
+    let index = match &p.index {
+        None => Vec::new(),
+        Some(Index::One(i)) => vec![i.clone()],
+        Some(Index::Many(v)) => v.clone(),
+    };
+    serde_json::json!({
+        "id": p.id, "scope": p.scope, "label": p.label, "min": p.min, "max": p.max, "units": p.units,
+        "values": cat.values(p), "encoding": p.encoding,
+        "index": index.iter().map(|i| serde_json::json!({"name": i.name, "min": i.min, "max": i.max})).collect::<Vec<_>>(),
+        "readable": p.get_item.is_some(), "writable": p.set_item.is_some(),
+    })
+}
+
+fn value_json(
+    cat: &s5k::params::Catalog,
+    p: &s5k::params::Param,
+    sel: &[u8],
+    v: Result<&s5k::params::Value, String>,
+) -> serde_json::Value {
+    use s5k::params::Value;
+    match v {
+        Ok(v) => {
+            let value = match v {
+                Value::Number(n) => serde_json::json!(n),
+                Value::Text(t) => serde_json::json!(t),
+            };
+            serde_json::json!({"id": p.id, "select": sel, "value": value, "shown": shown(cat, p, v)})
+        }
+        Err(e) => serde_json::json!({"id": p.id, "select": sel, "error": e}),
+    }
 }

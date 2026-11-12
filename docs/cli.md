@@ -80,6 +80,20 @@ s5k param set sample.loop_start "Pad C3" 1000
   part, or effects channel and module (`-s 0,2`).
 - Lists such as filter types or waveforms accept the name or its number.
 
+Whole blocks, and several changes in one connection (each read back):
+
+```
+s5k param read keygroup "Warm Pad" -k 2          # every keygroup parameter of keygroup 2
+s5k param read zone "Warm Pad" -k 2              # zones 1-4 (a selector is read for each value)
+s5k param apply --item "Warm Pad" -k 2 keygroup.cutoff=60 zone.level@2=-6
+s5k param list keygroup --json                   # the catalog, one JSON object a line
+s5k param read program "Warm Pad" --json         # {"id", "select", "value", "shown"} a line
+```
+
+`--json` on `list`, `get`, `read` and `apply` is for programs that drive `s5k`
+(sample-tools' `s5000` editor). A parameter the sampler won't give is a line
+with `"error"` rather than a failure.
+
 ## Front panel
 
 ```
